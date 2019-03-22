@@ -1,0 +1,911 @@
+<!DOCTYPE HTML>
+
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="utf-8">
+
+    <!-- Description, Keywords and Author -->
+
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>springboot整合mybatis 使用HikariCP连接池</title>
+    <link rel="shortcut icon" href="http://img.winterchen.com/favicon.ico" type="image/x-icon">
+
+    <meta name="google-site-verification" content="eSQZAmjfibuJ-t-hspvmzqj-n0-YmQI-uVfeHZG3Yw8" />
+    <meta name="baidu-site-verification" content="cWhqikcyTK" />
+    <!-- style -->
+
+    <link href="../../site/css/style.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/style.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.bootcss.com/highlight.js/9.9.0/styles/xcode.min.css" rel="stylesheet"/>
+
+    <!-- style -->
+
+    <!-- bootstrap -->
+
+    <link href="../../site/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+    <!-- responsive -->
+
+    <link href="../../site/css/responsive.css" rel="stylesheet" type="text/css">
+
+    <!-- font-awesome -->
+
+    <link rel="stylesheet" type="text/css" href="../../site/jquery/font-awesome.4.6.0.css">
+
+    <!-- font-awesome -->
+
+    <link href="../../site/css/effects/set2.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/normalize.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/component.css"  rel="stylesheet" type="text/css" >
+</head>
+
+
+<body>
+
+
+<!-- header -->
+
+<html lang="en">
+<header role="header">
+    <div class="container">
+
+        <!-- logo -->
+
+        <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="avana LLC" alt="avana LLC"/></a> </h1>
+
+        <!-- logo -->
+
+        <!-- nav -->
+
+        <nav role="header-nav" class="navy">
+            <ul>
+                <li><a href="../../index.html" title="Work">Work</a></li>
+                <li><a  href="../../about.html" title="About">About</a></li>
+                <li class="nav-active"><a href="../index.html" title="Blog">Blog</a></li>
+            </ul>
+        </nav>
+
+        <!-- nav -->
+
+    </div>
+</header>
+</html>
+
+<!-- header -->
+
+<!-- main -->
+
+<main role="main-inner-wrapper" class="container">
+
+
+    <div class="blog-details">
+
+        <article class="post-details" id="post-details">
+
+            <header role="bog-header" class="bog-header text-center">
+
+                <h3>
+                    <span>7</span> 八月  2018
+                </h3>
+
+                <h2>
+                    springboot整合mybatis 使用HikariCP连接池
+                </h2>
+
+            </header>
+
+
+            <figure>
+
+                <img src="https://luischen.cn/blog/article/images/blog-images/blog-details-image.jpg" alt="" class="img-responsive"/>
+
+            </figure>
+
+            <div id="post-content" class="post-content" itemprop="articleBody">
+                <p><img src="http://img.winterchen.com/IMG_2333.jpg" alt="" /></p>
+<h2>前言</h2>
+<p>Springboot让Java开发更加美好，本节主要讲的是使用Hikari数据库连接池，如果需要使用druid连接池的请看我另外一篇博客，<a href="https://blog.csdn.net/winter_chen001/article/details/80010967">springboot Mybatis 整合</a>（这篇文章有详细搭建springboot项目的过程，对于刚接触springboot的新手有帮助）。</p>
+<h3>为什么使用HikariCP</h3>
+<p>在Springboot2.X版本，数据库的连接池官方推荐使用<a href="https://github.com/brettwooldridge/HikariCP">HikariCP</a>，官方的原话：</p>
+<blockquote>
+<p>Production database connections can also be auto-configured by using a pooling<code>DataSource</code>. Spring Boot uses the following algorithm for choosing a specific implementation:</p>
+<ol>
+<li>
+<p>We prefer<a href="https://github.com/brettwooldridge/HikariCP">HikariCP</a>for its performance and concurrency. If HikariCP is available, we always choose it.</p>
+</li>
+<li>
+<p>Otherwise, if the Tomcat pooling<code>DataSource</code>is available, we use it.</p>
+</li>
+<li>
+<p>If neither HikariCP nor the Tomcat pooling datasource are available and if<a href="https://commons.apache.org/proper/commons-dbcp/">Commons DBCP2</a>is available, we use it.</p>
+</li>
+</ol>
+</blockquote>
+<p>意思是说：</p>
+<ol>
+<li>
+<p>我们更喜欢HikariCP的性能和并发性。如果有HikariCP，我们总是选择它</p>
+</li>
+<li>
+<p>否则，如果Tomcat池数据源可用，我们将使用它。</p>
+</li>
+<li>
+<p>如果HikariCP和Tomcat池数据源都不可用，如果Commons DBCP2可用，我们将使用它。</p>
+</li>
+</ol>
+<p>那么如何使用HikariCP呢？</p>
+<p>如果你的springboot版本是2.X，当你使用<code>spring-boot-starter-jdbc</code>或者<code>spring-boot-starter-data-jpa</code>依赖，springboot就会自动引入HikariCP的依赖了。</p>
+<h3>使用指定的数据库连接池</h3>
+<p>如果你需要使用指定的数据库连接池，那么你需要在<code>application.properties</code>中配置：<code>spring.datasource.type</code></p>
+<h2>环境</h2>
+<ul>
+<li>
+<p>JDK： 1.8</p>
+</li>
+<li>
+<p>Maven: 3.3.9</p>
+</li>
+<li>
+<p>SpringBoot: 2.0.3.RELEASE</p>
+</li>
+<li>
+<p>开发工具：Intellij IDEA 2017.1.3</p>
+</li>
+</ul>
+<h2>开始使用</h2>
+<p>本次的配置中我们持久层使用mybatis，使用HikariCP作为数据库连接池。</p>
+<h3>引入依赖</h3>
+<pre><code class="language-xml">        &lt;dependency&gt;
+			&lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+			&lt;artifactId&gt;spring-boot-starter-jdbc&lt;/artifactId&gt;
+		&lt;/dependency&gt;
+		&lt;dependency&gt;
+			&lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+			&lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+			&lt;exclusions&gt;
+				&lt;!--排除默认的tomcat-jdbc--&gt;
+				&lt;exclusion&gt;
+					&lt;groupId&gt;org.apache.tomcat&lt;/groupId&gt;
+					&lt;artifactId&gt;tomcat-jdbc&lt;/artifactId&gt;
+				&lt;/exclusion&gt;
+			&lt;/exclusions&gt;
+		&lt;/dependency&gt;
+		&lt;dependency&gt;
+			&lt;groupId&gt;mysql&lt;/groupId&gt;
+			&lt;artifactId&gt;mysql-connector-java&lt;/artifactId&gt;
+			&lt;version&gt;5.1.46&lt;/version&gt;
+		&lt;/dependency&gt;
+		&lt;!-- mybatis一定要使用starter，不然无法自动配置和注入 --&gt;
+		&lt;dependency&gt;
+			&lt;groupId&gt;org.mybatis.spring.boot&lt;/groupId&gt;
+			&lt;artifactId&gt;mybatis-spring-boot-starter&lt;/artifactId&gt;
+			&lt;version&gt;1.3.2&lt;/version&gt;
+		&lt;/dependency&gt;
+
+		&lt;dependency&gt;
+			&lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+			&lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+			&lt;scope&gt;test&lt;/scope&gt;
+		&lt;/dependency&gt;        
+</code></pre>
+<p>以上的依赖就足够了，前面介绍过，只需要导入<code>spring-boot-starter-jdbc</code>依赖springboot就默认使用Hikari作为数据库连接池了。</p>
+<h3>创建数据表</h3>
+<pre><code class="language-sql">CREATE DATABASE mytest;
+
+CREATE TABLE t_user(
+  userId INT NOT NULL PRIMARY KEY AUTO_INCREMENT,
+  userName VARCHAR(255) NOT NULL ,
+  password VARCHAR(255) NOT NULL ,
+  phone VARCHAR(255) NOT NULL
+) ENGINE=INNODB AUTO_INCREMENT=1000 DEFAULT CHARSET=utf8;
+</code></pre>
+<h3>创建实体类</h3>
+<pre><code class="language-java">package com.winterchen.model;
+
+/**
+ * Created by Donghua.Chen on 2018/7/25.
+ */
+public class UserDomain {
+
+    private Integer userId;
+
+    private String userName;
+
+    private String password;
+
+    private String phone;
+
+    // @TODO 省略get/set
+}
+
+</code></pre>
+<h3>创建Dao以及mapper映射</h3>
+<h4>创建Dao类</h4>
+<p>创建一个dao的包，并且在这个包下创建一个UserDao</p>
+<pre><code class="language-java">package com.winterchen.dao;
+
+import com.winterchen.model.UserDomain;
+import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+
+import java.util.List;
+
+/**
+ * Created by Donghua.Chen on 2018/7/25.
+ */
+@Mapper
+public interface UserDao {
+
+    int insert(UserDomain record);
+
+    void deleteUserById(@Param(&quot;userId&quot;) Integer userId);
+
+    void updateUser(UserDomain userDomain);
+
+    List&lt;UserDomain&gt; selectUsers();
+
+}
+</code></pre>
+<p>注意：一定不要忘了使用<code>@Mapper</code>注解，如果没有这个注解，spring就无法扫描到这个类，导致项目启动报错。</p>
+<h4>创建Mapper映射</h4>
+<p>上一步我们创建dao数据库持久层类，由于本文使用的是xml映射的方式，所以我们需要创建一个xml映射文件。</p>
+<p>在<code>resources</code>文件夹下新建一个文件夹<code>mapper</code>：</p>
+<pre><code class="language-xml">&lt;?xml version=&quot;1.0&quot; encoding=&quot;UTF-8&quot; ?&gt;
+&lt;!DOCTYPE mapper PUBLIC &quot;-//mybatis.org//DTD Mapper 3.0//EN&quot; &quot;http://mybatis.org/dtd/mybatis-3-mapper.dtd&quot; &gt;
+&lt;mapper namespace=&quot;com.winterchen.dao.UserDao&quot; &gt;
+    &lt;sql id=&quot;BASE_TABLE&quot;&gt;
+        t_user
+    &lt;/sql&gt;
+
+    &lt;sql id=&quot;BASE_COLUMN&quot;&gt;
+        userId,userName,password,phone
+    &lt;/sql&gt;
+
+    &lt;insert id=&quot;insert&quot; parameterType=&quot;com.winterchen.model.UserDomain&quot;&gt;
+        INSERT INTO
+        &lt;include refid=&quot;BASE_TABLE&quot;/&gt;
+        &lt;trim prefix=&quot;(&quot; suffix=&quot;)&quot; suffixOverrides=&quot;,&quot;&gt;
+            userName,password,
+            &lt;if test=&quot;phone != null&quot;&gt;
+                phone,
+            &lt;/if&gt;
+        &lt;/trim&gt;
+        &lt;trim prefix=&quot;VALUES(&quot; suffix=&quot;)&quot; suffixOverrides=&quot;,&quot;&gt;
+            #{userName, jdbcType=VARCHAR},#{password, jdbcType=VARCHAR},
+            &lt;if test=&quot;phone != null&quot;&gt;
+                #{phone, jdbcType=VARCHAR},
+            &lt;/if&gt;
+        &lt;/trim&gt;
+    &lt;/insert&gt;
+
+    &lt;delete id=&quot;deleteUserById&quot;&gt;
+      DELETE FROM
+      &lt;include refid=&quot;BASE_TABLE&quot;/&gt;
+      WHERE
+      userId = #{userId, jdbcType=INTEGER}
+    &lt;/delete&gt;
+    &lt;!-- 更新用户信息，为空的字段不进行置空 --&gt;
+    &lt;update id=&quot;updateUser&quot; parameterType=&quot;com.winterchen.model.UserDomain&quot;&gt;
+        UPDATE
+        &lt;include refid=&quot;BASE_TABLE&quot;/&gt;
+        &lt;set&gt;
+          &lt;if test=&quot;userName != null&quot;&gt;
+              userName = #{userName, jdbcType=VARCHAR},
+          &lt;/if&gt;
+          &lt;if test=&quot;password != null&quot;&gt;
+              password = #{password, jdbcType=VARCHAR},
+          &lt;/if&gt;
+          &lt;if test=&quot;phone != null&quot;&gt;
+              phone = #{phone, jdbcType=VARCHAR},
+          &lt;/if&gt;
+        &lt;/set&gt;
+        &lt;where&gt;
+            userId = #{userId, jdbcType=INTEGER}
+        &lt;/where&gt;
+    &lt;/update&gt;
+
+    &lt;select id=&quot;selectUsers&quot; resultType=&quot;com.winterchen.model.UserDomain&quot;&gt;
+        SELECT
+        &lt;include refid=&quot;BASE_COLUMN&quot;/&gt;
+        FROM
+        &lt;include refid=&quot;BASE_TABLE&quot;/&gt;
+    &lt;/select&gt;
+&lt;/mapper&gt;
+</code></pre>
+<p><strong>注意点：</strong> 请将<code>namespace=&quot;com.winterchen.dao.UserDao&quot;</code>改为你自己项目Dao的路径，以及下面方法的一些路径都要改为你自己项目的相关路径。</p>
+<h3>配置</h3>
+<pre><code>server.port=8080
+
+#### 数据库连接池属性
+spring.datasource.driver-class-name=com.mysql.jdbc.Driver
+spring.datasource.url=jdbc:mysql://127.0.0.1:3306/mytest?useSSL=false&amp;useUnicode=true&amp;characterEncoding=utf-8&amp;allowMultiQueries=true
+spring.datasource.username=root
+spring.datasource.password=root
+#自动提交
+spring.datasource.default-auto-commit=true
+#指定updates是否自动提交
+spring.datasource.auto-commit=true
+spring.datasource.maximum-pool-size=100
+spring.datasource.max-idle=10
+spring.datasource.max-wait=10000
+spring.datasource.min-idle=5
+spring.datasource.initial-size=5
+spring.datasource.validation-query=SELECT 1
+spring.datasource.test-on-borrow=false
+spring.datasource.test-while-idle=true
+# 配置间隔多久才进行一次检测，检测需要关闭的空闲连接，单位是毫秒
+spring.datasource.time-between-eviction-runs-millis=18800
+# 配置一个连接在池中最小生存的时间，单位是毫秒
+spring.datasource.minEvictableIdleTimeMillis=300000
+
+# mybatis对应的映射文件路径
+mybatis.mapper-locations=classpath:mapper/*.xml
+# mybatis对应的实体类
+mybatis.type-aliases-package=com.winterchen.model
+</code></pre>
+<h3>Service层</h3>
+<pre><code class="language-java">package com.winterchen.service;
+
+import com.winterchen.model.UserDomain;
+
+import java.util.List;
+
+/**
+ * Created by Donghua.Chen on 2018/7/25.
+ */
+public interface UserService {
+
+    int insert(UserDomain record);
+
+    void deleteUserById(Integer userId);
+
+    void updateUser(UserDomain userDomain);
+
+    List&lt;UserDomain&gt; selectUsers();
+
+}
+
+</code></pre>
+<h3>Service 实现层</h3>
+<pre><code class="language-java">package com.winterchen.service.impl;
+
+import com.winterchen.dao.UserDao;
+import com.winterchen.model.UserDomain;
+import com.winterchen.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+/**
+ * Created by Donghua.Chen on 2018/7/25.
+ */
+@Service
+public class UserServiceImpl implements UserService {
+
+    @Autowired
+    private UserDao userDao;//这里会爆红，请忽略
+
+    @Override
+    public int insert(UserDomain record) {
+        return userDao.insert(record);
+    }
+
+    @Override
+    public void deleteUserById(Integer userId) {
+        userDao.deleteUserById(userId);
+    }
+
+    @Override
+    public void updateUser(UserDomain userDomain) {
+        userDao.updateUser(userDomain);
+    }
+
+    @Override
+    public List&lt;UserDomain&gt; selectUsers() {
+        return userDao.selectUsers();
+    }
+}
+
+</code></pre>
+<h3>Controller层</h3>
+<pre><code class="language-java">package com.winterchen.controller;
+
+import com.winterchen.model.UserDomain;
+import com.winterchen.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+/**
+ * Created by Donghua.Chen on 2018/7/25.
+ */
+@RestController
+@RequestMapping(&quot;/user&quot;)
+public class UserController {
+
+    @Autowired
+    private UserService userService;
+
+    @PostMapping(&quot;&quot;)
+    public ResponseEntity addUser(
+            @RequestParam(value = &quot;userName&quot;, required = true)
+            String userName,
+            @RequestParam(value = &quot;password&quot;, required = true)
+            String password,
+            @RequestParam(value = &quot;phone&quot;, required = false)
+            String phone
+    ){
+        UserDomain userDomain = new UserDomain();
+        userDomain.setUserName(userName);
+        userDomain.setPassword(password);
+        userDomain.setPhone(phone);
+        userService.insert(userDomain);
+        return ResponseEntity.ok(&quot;添加成功&quot;);
+    }
+
+    @DeleteMapping(&quot;&quot;)
+    public ResponseEntity deleteUser(@RequestParam(value = &quot;userId&quot;, required = true) Integer userId){
+
+        userService.deleteUserById(userId);
+        return ResponseEntity.ok(&quot;删除成功&quot;);
+    }
+
+    @PutMapping(&quot;&quot;)
+    public ResponseEntity updateUser(
+            @RequestParam(value = &quot;userId&quot;, required = true)
+                    Integer userId,
+            @RequestParam(value = &quot;userName&quot;, required = false)
+                    String userName,
+            @RequestParam(value = &quot;password&quot;, required = false)
+                    String password,
+            @RequestParam(value = &quot;phone&quot;, required = false)
+                    String phone
+    ){
+        UserDomain userDomain = new UserDomain();
+        userDomain.setUserId(userId);
+        userDomain.setUserName(userName);
+        userDomain.setPassword(password);
+        userDomain.setPhone(phone);
+        userService.updateUser(userDomain);
+        return ResponseEntity.ok(&quot;更新成功&quot;);
+    }
+
+    @GetMapping(&quot;&quot;)
+    public ResponseEntity getUsers(){
+        return ResponseEntity.ok(userService.selectUsers());
+    }
+}
+</code></pre>
+<p>强行科普一下：</p>
+<ul>
+<li>
+<p><code>@RequestParam</code> 用于将请求参数区数据映射到功能处理方法的参数上，<code>value</code>：参数名字，即入参的请求参数名字，如userName表示请求的参数区中的名字为userName的参数的值将传入，<code>required</code>：是否必须，默认是true，表示请求中一定要有相应的参数，否则将报404错误码；</p>
+</li>
+<li>
+<p><a href="https://www.cnblogs.com/shuaifing/p/8119664.html">@Controller和@RestController的区别？</a></p>
+</li>
+</ul>
+<h3>启动类</h3>
+<pre><code class="language-java">package com.winterchen;
+
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
+@SpringBootApplication
+public class SpringBootMybatisHikaricpApplication {
+
+	public static void main(String[] args) {
+		SpringApplication.run(SpringBootMybatisHikaricpApplication.class, args);
+	}
+}
+</code></pre>
+<h3>最终项目结构</h3>
+<p><img src="http://img.winterchen.com/WX20180725-151516@2x.png" alt="目录结构" /></p>
+<h2>启动</h2>
+<p>启动项目启动类</p>
+<pre><code>2018-07-25 15:25:42.970  INFO 22602 --- [           main] o.s.w.s.handler.SimpleUrlHandlerMapping  : Mapped URL path [/**] onto handler of type [class org.springframework.web.servlet.resource.ResourceHttpRequestHandler]
+2018-07-25 15:25:43.380  INFO 22602 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Registering beans for JMX exposure on startup
+2018-07-25 15:25:43.382  INFO 22602 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Bean with name 'dataSource' has been autodetected for JMX exposure
+2018-07-25 15:25:43.389  INFO 22602 --- [           main] o.s.j.e.a.AnnotationMBeanExporter        : Located MBean 'dataSource': registering with JMX server as MBean [com.zaxxer.hikari:name=dataSource,type=HikariDataSource]
+2018-07-25 15:25:43.450  INFO 22602 --- [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8080 (http) with context path ''
+2018-07-25 15:25:43.456  INFO 22602 --- [           main] c.w.SpringBootMybatisHikaricpApplication : Started SpringBootMybatisHikaricpApplication in 6.267 seconds (JVM running for 7.784)
+</code></pre>
+<p>这样的输出表示项目启动成功了！！如果遇到报错启动不了，请回头看看是不是有些地方没有注意到。</p>
+<h2>测试</h2>
+<p>项目成功启动了，那么可以开始测试了</p>
+<p>推荐使用一个强大的http请求工具：Postman</p>
+<h3>添加</h3>
+<p><img src="http://img.winterchen.com/WX20180725-142118@2x.png" alt="添加" /></p>
+<h3>删除</h3>
+<p><img src="http://img.winterchen.com/WX20180725-141938@2x.png" alt="删除" /></p>
+<h3>更新</h3>
+<p><img src="http://img.winterchen.com/WX20180725-142044@2x.png" alt="更新" /></p>
+<h3>查找</h3>
+<p><img src="http://img.winterchen.com/WX20180725-141808@2x.png" alt="查找" /></p>
+<h2>最后</h2>
+<blockquote>
+<p>在编程的路上肯定会遇到很多的bug，程序员就是要不断的和bug作斗争，加油，愿你成为真正的大牛。有机会讲讲Hikari如何使用多数据源。</p>
+</blockquote>
+<p>源码地址：<a href="https://github.com/WinterChenS/springboot-learning-experience/tree/master/spring-boot-mybatis-hikaricp">戳这里</a></p>
+<p>springboot技术交流群：681513531</p>
+<p>个人博客：<a href="https://winterchen.com/">https://winterchen.com</a></p>
+
+            </div>
+
+
+        </article>
+
+
+        <!-- Comments -->
+        <html lang="en">
+<body>
+
+<div class="comment-allow">
+    <div id="comments-content">
+        <div id="55" class="comments-pan">
+
+            <h3>
+                2
+                Comments
+            </h3>
+
+            <ul class="comments-reply">
+                
+                    <li id="li-comment-22">
+
+                        <figure id="comment-22">
+
+                            <img src="https://github.com/identicons/913b6c1a3eb3fc7e10eee02a3e4d5b14.png?s=80&r=G&d=" alt=""
+                                 class="img-responsive"/>
+
+                        </figure>
+
+                        <section>
+
+                            <h4><a href="https://www.cctv.com" target="blank">111</a></h4>
+
+                            <div class="date-pan">
+                                2018-08-10
+                            </div>
+
+                            <p>写的不错哦</p>
+
+
+                        </section>
+
+
+                    </li>
+                
+                    <li id="li-comment-31">
+
+                        <figure id="comment-31">
+
+                            <img src="https://github.com/identicons/95d1bb82ff6ee3442a24fa4d4113861c.png?s=80&r=G&d=" alt=""
+                                 class="img-responsive"/>
+
+                        </figure>
+
+                        <section>
+
+                            <h4><a href="" target="blank">热心网友</a></h4>
+
+                            <div class="date-pan">
+                                2019-01-24
+                            </div>
+
+                            <p>能注册你这个网站的账号吗</p>
+
+
+                        </section>
+
+
+                    </li>
+                
+
+
+            </ul>
+            <div class="commentys-form">
+
+                <h4>Leave a comment</h4>
+
+
+                <div class="row">
+
+                    <form  id="comment-form" class="comment-form" role="form"
+                          onsubmit="return TaleComment.subComment();">
+
+                        <input type="hidden" name="coid" id="coid"/>
+                        <input type="hidden" name="cid" id="cid" value="55"/>
+                        <input type="hidden" name="_csrf_token" value="thY8rVTUIyHW5YE8jwkxF1"/>
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="text" name="author" maxlength="12" id="author"
+                                   placeholder="姓名 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="email" name="mail" id="mail"
+                                   placeholder="邮箱 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="url" name="url" id="url"
+                                   placeholder="网址 (http://)"
+                            />
+
+                        </div>
+
+                        <div class="clearfix"></div>
+
+                        <div class="col-xs-12 col-sm-12 col-md-12">
+
+                                <textarea name="text" id="textarea" placeholder="以上信息可以为空,评论不能为空哦!"
+                                          required="required" minlength="5"
+                                          maxlength="2000"></textarea>
+                        </div>
+
+                        <div class="text-center">
+
+                            <input type="submit" value="Post Comment" id="misubmit"/>
+
+                        </div>
+
+
+                    </form>
+
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+
+    </div>
+
+
+</main>
+
+<!-- main -->
+
+<!-- footer -->
+
+<html lang="en">
+<footer role="footer">
+
+    <!-- logo -->
+
+    <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="Luis" alt="Luis"/></a> </h1>
+
+
+    <!-- logo -->
+
+    <!-- nav -->
+
+    <nav role="footer-nav">
+        <ul>
+            <li><a href="../../index.html" title="Work">Work</a></li>
+            <li><a href="../../about.html" title="About">About</a></li>
+            <li><a href="../index.html" title="Blog">Blog</a></li>
+        </ul>
+    </nav>
+
+    <!-- nav -->
+
+    <ul role="social-icons">
+        
+            
+                
+                    
+                    
+                    
+                        <li><a class="icon resume" target="blank" href="https://resume.winterchen.com/"></a></li>
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon zhihu" target="blank" href="https://www.zhihu.com/people/Winter_chen"></a></li>
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon github" target="blank" href="https://github.com/WinterChenS"></a></li>
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                        <li><a class="icon csdn" target="blank" href="https://blog.csdn.net/Winter_chen001"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                    
+                        <li><a class="icon jianshu" target="blank" href="https://www.jianshu.com/u/a6fa02ee712b"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+    </ul>
+    <p class="copy-right">&copy; 2018 Luis</p>
+    <a class="copy-right" href="http://www.miitbeian.gov.cn/">浙ICP备17056942号-2</a>
+</footer>
+
+<!-- footer -->
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+
+<script src="../../site/js/jquery.min.js" type="text/javascript"></script>
+
+<!-- custom -->
+
+<script src="../../site/js/nav.js" type="text/javascript"></script>
+<script src="../../site/js/custom.js" type="text/javascript"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+
+<script src="../../site/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="../../site/js/effects/masonry.pkgd.min.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/imagesloaded.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/classie.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/AnimOnScroll.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/modernizr.custom.js"></script>
+<script src="https://cdn.bootcss.com/headroom/0.9.1/headroom.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.9.0/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/instantclick/3.0.1/instantclick.min.js"></script>
+
+<!-- jquery.countdown -->
+
+<script src="../../site/js/html5shiv.js" type="text/javascript"></script>
+<script data-no-instant="">
+    /*<![CDATA[*/
+    InstantClick.on('change', function (isInitialLoad) {
+        var blocks = document.querySelectorAll('pre code');
+        for (var i = 0; i < blocks.length; i++) {
+            hljs.highlightBlock(blocks[i]);
+        }
+        if (isInitialLoad === false) {
+            if (typeof ga !== 'undefined') ga('send', 'pageview', location.pathname + location.search);
+        }
+    });
+    InstantClick.init('mousedown');
+    /*]]>*/
+</script>
+<!-- 百度收录自动推送 -->
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        }
+        else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+
+    function linkFirend(link) {
+        window.location.href=link;
+    }
+</script>
+</html>
+
+</body>
+<html lang="en">
+<body>
+<script type="text/javascript">
+    /*<![CDATA[*/
+    (function () {
+        window.TaleComment = {
+            dom: function (id) {
+                return document.getElementById(id);
+            },
+            create: function (tag, attr) {
+                var el = document.createElement(tag);
+                for (var key in attr) {
+                    el.setAttribute(key, attr[key]);
+                }
+                return el;
+            },
+            reply: function (coid) {
+                $('#comment-form input[name=coid]').val(coid);
+                $("html,body").animate({scrollTop: $('div.comment-container').offset().top}, 500);
+                $('#comment-form #textarea').focus();
+            },
+            subComment: function () {
+                $.ajax({
+                    type: 'post',
+                    url: '/blog/comment',
+                    data: $('#comment-form').serialize(),
+                    async: false,
+                    dataType: 'json',
+                    success: function (result) {
+                        $('#comment-form input[name=coid]').val('');
+                        if (result && result.code == 'success') {
+                            alert("评论已提交至后台审核!");
+                            window.location.reload();
+                        } else {
+                            if (result.msg) {
+                                alert(result.msg);
+                            }
+                        }
+                    }
+                });
+                return false;
+            }
+        };
+    })();
+    function getCommentCookie(name) {
+        var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+        if (arr = document.cookie.match(reg))
+            return unescape(decodeURI(arr[2]));
+        else
+            return null;
+    }
+    function addCommentInputValue() {
+        document.getElementById('author').value = getCommentCookie('tale_remember_author');
+        document.getElementById('mail').value = getCommentCookie('tale_remember_mail');
+        document.getElementById('url').value = getCommentCookie('tale_remember_url');
+    }
+    addCommentInputValue();
+    /*]]>*/
+</script>
+</body>
+</html>
+</html>

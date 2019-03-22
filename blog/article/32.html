@@ -1,0 +1,912 @@
+<!DOCTYPE HTML>
+
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="utf-8">
+
+    <!-- Description, Keywords and Author -->
+
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Java 利用 svnKit 操作SVN </title>
+    <link rel="shortcut icon" href="http://img.winterchen.com/favicon.ico" type="image/x-icon">
+
+    <meta name="google-site-verification" content="eSQZAmjfibuJ-t-hspvmzqj-n0-YmQI-uVfeHZG3Yw8" />
+    <meta name="baidu-site-verification" content="cWhqikcyTK" />
+    <!-- style -->
+
+    <link href="../../site/css/style.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/style.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.bootcss.com/highlight.js/9.9.0/styles/xcode.min.css" rel="stylesheet"/>
+
+    <!-- style -->
+
+    <!-- bootstrap -->
+
+    <link href="../../site/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+    <!-- responsive -->
+
+    <link href="../../site/css/responsive.css" rel="stylesheet" type="text/css">
+
+    <!-- font-awesome -->
+
+    <link rel="stylesheet" type="text/css" href="../../site/jquery/font-awesome.4.6.0.css">
+
+    <!-- font-awesome -->
+
+    <link href="../../site/css/effects/set2.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/normalize.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/component.css"  rel="stylesheet" type="text/css" >
+</head>
+
+
+<body>
+
+
+<!-- header -->
+
+<html lang="en">
+<header role="header">
+    <div class="container">
+
+        <!-- logo -->
+
+        <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="avana LLC" alt="avana LLC"/></a> </h1>
+
+        <!-- logo -->
+
+        <!-- nav -->
+
+        <nav role="header-nav" class="navy">
+            <ul>
+                <li><a href="../../index.html" title="Work">Work</a></li>
+                <li><a  href="../../about.html" title="About">About</a></li>
+                <li class="nav-active"><a href="../index.html" title="Blog">Blog</a></li>
+            </ul>
+        </nav>
+
+        <!-- nav -->
+
+    </div>
+</header>
+</html>
+
+<!-- header -->
+
+<!-- main -->
+
+<main role="main-inner-wrapper" class="container">
+
+
+    <div class="blog-details">
+
+        <article class="post-details" id="post-details">
+
+            <header role="bog-header" class="bog-header text-center">
+
+                <h3>
+                    <span>3</span> 五月  2018
+                </h3>
+
+                <h2>
+                    Java 利用 svnKit 操作SVN 
+                </h2>
+
+            </header>
+
+
+            <figure>
+
+                <img src="https://luischen.cn/blog/article/images/blog-images/blog-details-image.jpg" alt="" class="img-responsive"/>
+
+            </figure>
+
+            <div id="post-content" class="post-content" itemprop="articleBody">
+                <blockquote>
+<p>又遇到了一个功能点，网上的参考内容挺少的，终于把功能实现了，记一下，方便以后遇到坑的时候看看</p>
+</blockquote>
+<!--  more  -->
+<h2>主要功能点</h2>
+<ul>
+<li>获取一个SVN目录中的所有子文件夹以及文件
+<ul>
+<li>可以利用参数控制是否进行递归获取所有的文件夹中的子类</li>
+<li>可以利用参数控制获取的是文件还是文件夹</li>
+</ul>
+</li>
+<li>通过输出流下载SVN中的文件</li>
+<li>为SVN中添加目录</li>
+<li>将不同级别的目录中的文件目录（内含子类）copy到一个指定的文件夹中</li>
+</ul>
+<h2>功能实现</h2>
+<h3>获取一个SVN目录中的所有子文件夹以及文件</h3>
+<blockquote>
+<p>请不要在意代码中的dto类</p>
+</blockquote>
+<pre><code class="language-java"> * @Author: winterchen
+     * @Description: 获取SVN目录下下一层所有文件信息
+     * @Date: 2018/2/6
+     * @param dirPath 需要查找的目录名
+     * @param fileNameSearch 名称模糊搜索
+     * @param typeEnum 文件的类型枚举 -- 这个就是三个参数 ‘dir’，‘file’，‘all’
+     */
+    public List&lt;PmcFileInfoDto&gt; getNextLvFileList2(String dirPath, String fileNameSearch, SvnGetFileTypeEnum typeEnum){
+
+        if (dirPath.startsWith(&quot;/&quot;)){
+            dirPath = dirPath.replaceFirst(&quot;/&quot;, &quot;&quot;);
+        }
+        try {
+            //获取SVNRepository
+            SVNRepository svnRepository = SVNUtil.getSVNRepository();
+            //获取路径下的所有文件夹或文件
+            List&lt;SVNDirEntry&gt; svnList = SvnOption.getSvnFileBaseInfoDto(svnRepository,dirPath, fileNameSearch, typeEnum,
+                    false);
+            //这个方法只是做对象转换的，忽略
+            return parsePmcFileInfoDtos(svnList);
+        } catch (SVNException e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.GET_FILE_LIST_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        }
+
+    }
+</code></pre>
+<p>SVNUtil.java</p>
+<pre><code class="language-java">
+ public class SVNUtil {
+    //svn连接地址
+    public static String storeUrl=null;
+    private static final String USERNAME = &quot;你的账号&quot;;
+    private static final String PASSWD = &quot;你的密码&quot;;
+
+
+    static{
+        storeUrl =  “https://ip:port/svn/...”
+        }
+    /**
+     * @Author: winterchen
+     * @Description: 获取SVNRepository
+     * @Date: 2018/2/6
+     * @param url
+     */
+    public static SVNRepository getSVNRepository(String url) throws SVNException{
+
+        SVNRepository repository = SVNRepositoryFactory.create(SVNURL.parseURIEncoded(url));
+        ISVNAuthenticationManager authManager =  SVNWCUtil.createDefaultAuthenticationManager( USERNAME , PASSWD );
+        repository.setAuthenticationManager( authManager );
+
+        return repository;
+    }
+
+    /**
+     * @Author: winterchen
+     * @Description: 获取SVNRepository
+     * @Date: 2018/2/7
+     * @param
+     */
+    public static SVNRepository getSVNRepository() throws SVNException{
+        return SVNUtil.getSVNRepository(storeUrl);
+    }
+}
+
+
+ /**
+     * @Author: winterchen
+     * @Description: 获取 SVNUpdateClient
+     * @Date: 2018/2/9
+     * @param
+     */
+    public static SVNUpdateClient getSVNUpdateClient(){
+
+        //声明SVN客户端管理类
+        SVNClientManager ourClientManager = null;
+
+        //初始化库。 必须先执行此操作。具体操作封装在setupLibrary方法中。
+        setupLibrary();
+
+
+
+        ISVNOptions options = SVNWCUtil.createDefaultOptions(true);
+        //实例化客户端管理类
+        ourClientManager = SVNClientManager.newInstance(
+                (DefaultSVNOptions) options, USERNAME, PASSWD);
+
+        //通过客户端管理类获得updateClient类的实例。
+        SVNUpdateClient updateClient = ourClientManager.getUpdateClient();
+
+        updateClient.setIgnoreExternals(false);
+
+        return updateClient;
+
+    }
+
+    /*
+     * 初始化库
+     */
+    private static void setupLibrary() {
+        /*
+         * For using over http:// and https://
+         */
+        DAVRepositoryFactory.setup();
+        /*
+         * For using over svn:// and svn+xxx://
+         */
+        SVNRepositoryFactoryImpl.setup();
+
+        /*
+         * For using over file:///
+         */
+        FSRepositoryFactory.setup();
+    }
+
+    /**
+     * @Author: winterchen
+     * @Description: 获取 SVNClientManager
+     * @Date: 2018/2/9
+     * @param
+     */
+    public static SVNClientManager getSVNClientManager(){
+        DAVRepositoryFactory.setup();
+        ISVNOptions options = SVNWCUtil.createDefaultOptions(true);
+        //实例化客户端管理类
+        return SVNClientManager.newInstance((DefaultSVNOptions) options, USERNAME, PASSWD);
+    }
+
+
+</code></pre>
+<p>SvnOption.java</p>
+<pre><code class="language-java">/**
+     * @Author: winterchen
+     * @Description: 获取版本库中某一目录下的所有条目。可以根据参数选择是否进行递归
+     * @Date: 2018/2/6
+     * @param repository
+     * @param path  需要查找的svn路径（相对路径）前面不需要/
+     * @param typeEnum  文件类型
+     * @param fileNameSearch    文件名过滤条件
+     * @param isGetNext 是否递归 true  递归
+     */
+    public static List&lt;SVNDirEntry&gt; getSvnFileBaseInfoDto(SVNRepository repository, String path,
+    String fileNameSearch, SvnGetFileTypeEnum typeEnum,
+    boolean isGetNext)throws SVNException{
+        List&lt;SVNDirEntry&gt; result = new LinkedList&lt;&gt;();
+        listEntries(repository,path,result,fileNameSearch,typeEnum,isGetNext);
+        return result;
+    }
+    
+     /**
+     * @Author: winterchen
+     * @Description: 获取版本库中某一目录下的所有条目。可以根据参数选择是否进行递归
+     * @Date: 2018/2/6
+     * @param repository
+     * @param path  需要查找的svn路径（相对路径）前面不需要/
+     * @param result    最后封装的容器
+     * @param typeEnum  文件类型
+     * @param fileNameSearch    文件名过滤条件
+     * @param isGetNext 是否递归 true  递归
+     */
+    public static void listEntries(SVNRepository repository, String path, List&lt;SVNDirEntry&gt; result,
+                                   String fileNameSearch, SvnGetFileTypeEnum typeEnum,
+                                   boolean isGetNext) throws SVNException {
+        //获取版本库的path目录下的所有条目。参数－1表示是最新版本。
+        Collection entries = repository.getDir(path, -1, null,
+                (Collection) null);
+        Iterator iterator = entries.iterator();
+
+        while (iterator.hasNext()) {
+            SVNDirEntry entry = (SVNDirEntry) iterator.next();
+            boolean flag = true;
+            //进行参数的匹配
+            if (typeEnum != null) {
+                if (!typeEnum.getValue().equals(SvnGetFileTypeEnum.DEFAULT.getValue())) {
+                    if (!entry.getKind().toString().equals(typeEnum.getValue())) {
+                        flag = false;
+                    }
+                }
+            }
+            if (!StringUtils.isEmpty(fileNameSearch)) {
+                if (!entry.getName().contains(fileNameSearch)) {
+                    flag = false;
+                }
+            }
+            if (flag) { //如果两个条件都不为空，并且都通过了
+                result.add(entry);
+            }
+            //判断是否需要进行递归
+            if (isGetNext) {
+                /*
+                 * 检查此条目是否为目录，如果为目录递归执行
+                 */
+                if (entry.getKind() == SVNNodeKind.DIR) {
+                    listEntries(repository, (path.equals(&quot;&quot;)) ? entry.getName()
+                            : path + &quot;/&quot; + entry.getName(), result, fileNameSearch, typeEnum, isGetNext);
+                }
+            }
+        }
+    }
+</code></pre>
+<h3>通过输出流下载SVN中的文件</h3>
+<p>controller</p>
+<blockquote>
+<p>方法是通过将输出流通过HttpServletResponse传给前端进行下载</p>
+</blockquote>
+<pre><code class="language-java">@ApiOperation(&quot;SVN文件的下载&quot;)
+    @RequestMapping(value = &quot;/svn/download&quot;, method = RequestMethod.GET)
+    public APIResponse downloadFileBy(
+            @ApiParam(name = &quot;path&quot;, value = &quot;需要下载文件的相对路径&quot;, required = true)
+            @RequestParam(name = &quot;path&quot;, required = true)
+            String path,
+            HttpServletResponse response){
+        SVNProperties svnProperties = new SVNProperties();
+        BufferedOutputStream bos = null;
+        //文件名称
+        try {
+            if (path.startsWith(&quot;/&quot;)){
+                path = path.replaceFirst(&quot;/&quot;, &quot;&quot;);
+            }
+            String filename = path.substring(path.lastIndexOf(&quot;/&quot;) + 1);
+            String url = path.substring(0,path.lastIndexOf(&quot;/&quot;));
+            filename = URLEncoder.encode(filename,&quot;UTF-8&quot;);
+            response.reset();
+
+            response.setContentType(&quot;application/force-download&quot;);// 设置强制下载不打开
+            response.setCharacterEncoding(&quot;UTF-8&quot;);
+            response.addHeader(&quot;Content-Disposition&quot;,
+                    &quot;attachment;fileName=&quot; + filename);// 设置文件名
+            bos = new BufferedOutputStream(response.getOutputStream());
+            SVNRepository svnRepository = SVNUtil.getSVNRepository(SVNUtil.storeUrl + &quot;/&quot; + url);
+            svnHandleService.getSvnFileOutputstream(svnRepository,bos,svnProperties,path);
+            response.flushBuffer();
+            bos.close();
+        } catch (SVNException e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.DOWNLOAD_FILE_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        } catch (IOException e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.DOWNLOAD_FILE_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        }
+        return APIResponse.success();
+    }
+</code></pre>
+<pre><code class="language-java"> /**
+     * @Author: winterchen
+     * @Description: 获取SVN文件的输出流和文件的属性
+     * @Date: 2018/2/7
+     * @param repository
+     * @param outputStream 输出流
+     * @param fileProperties 文件属性
+     * @param path 文件的相对路径 前面不带/
+     */
+    public void getSvnFileOutputstream(SVNRepository repository, OutputStream outputStream,
+                                       SVNProperties fileProperties, String path){
+
+        if (repository == null || outputStream == null || fileProperties == null || StringUtils.isEmpty(path))
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.DOWNLOAD_FILE_FAIL)
+            .withErrorMessageArguments(&quot;参数不能为空&quot;);
+        try {
+            SvnOption.getSvnFileOutputStream(repository,outputStream,fileProperties,path);
+        } catch (SVNException e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.DOWNLOAD_FILE_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        }
+    }
+</code></pre>
+<pre><code class="language-java">
+/**
+     * @Author: winterchen
+     * @Description: 获取SVN文件的输出流和文件的属性
+     * @Date: 2018/2/7
+     * @param repository
+     * @param outputStream 输出流
+     * @param fileProperties 文件属性
+     * @param path 文件的相对路径 前面不带/
+     */
+    public static void getSvnFileOutputStream(SVNRepository repository, OutputStream outputStream,
+                                              SVNProperties fileProperties, String path) throws SVNException {
+
+        //进行path的处理
+        String url = path.substring(0,path.lastIndexOf(&quot;/&quot;));
+        String filePath = path.substring(path.lastIndexOf(&quot;/&quot;) + 1);
+
+        try {
+            //获得版本库中文件的类型状态（是否存在、是目录还是文件），参数-1表示是版本库中的最新版本。
+            SVNNodeKind nodeKind = repository.checkPath(filePath, -1);
+
+            if (nodeKind == SVNNodeKind.NONE) {
+                throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.DOWNLOAD_FILE_FAIL)
+                        .withErrorMessageArguments(&quot;要查看的文件在 '&quot; + url + &quot;'中不存在&quot;);
+            } else if (nodeKind == SVNNodeKind.DIR) {
+                throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.DOWNLOAD_FILE_FAIL)
+                        .withErrorMessageArguments(&quot;要查看对应版本的条目在 '&quot; + url
+                                + &quot;'中是一个目录.&quot;);
+            }
+            //获取要查看文件的内容和属性，结果保存在baos和fileProperties变量中。
+            repository.getFile(filePath, -1, fileProperties, outputStream);
+
+        } catch (SVNException svne) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.DOWNLOAD_FILE_FAIL)
+                    .withErrorMessageArguments(svne.getMessage());
+        }
+
+
+    }
+</code></pre>
+<h3>为SVN中添加目录</h3>
+<blockquote>
+<p>将不同级别的目录中的文件目录（内含子类）copy到一个指定的文件夹中,请看注释中的实现思路就知道了</p>
+</blockquote>
+<pre><code class="language-java">
+/**
+     * @Author: winterchen
+     * @Description: 创建项目Svn目录（并加入模板文件）
+     * @Date: 2018/2/9
+     * @param path
+     * @param projId
+     */
+    public void addNewProjSvnDir(String path, Integer projId) throws SVNException {
+
+        DataDictDomain projDict = dataDictDao.getDataDictByProjId(projId);
+        /** 实现思路：
+         *  根据项目的类型找到相应的svn目录，docheckout到本地
+         *  然后doimport到刚刚创建的文件夹中
+         *  finally 删除本地文件夹
+         **/
+
+
+        //将模板文件夹checkOut到本地
+        File wcDir = new File(SvnOption.getSysLocalDir(projId.toString()));
+        try {
+            //将svn的模板目录checkout到本地
+            SvnOption.checkOut(wcDir,SVNUtil.storeUrl + &quot;/PMCLIB/&quot; + projDict.getEntryName() + &quot;项目&quot;);
+            //创建svn目录
+            SvnOption.addNewSvnDir(path, projDict.getEntryName());
+            //将本地的文件目录import到svn
+            SvnOption.imoprtToSvnDir(wcDir,SVNUtil.storeUrl + &quot;/&quot; + path);
+        } catch (Exception e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.CREATE_SVN_DIR_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        }finally {
+            FileUtil.deleteDir(wcDir);
+        }
+    }
+</code></pre>
+<p>SvnOption.java</p>
+<pre><code class="language-java">/**
+     * @Author: winterchen
+     * @Description: 往SVN中添加文件夹
+     * @Date: 2018/2/9
+     * @param path
+     * @param projTypeName
+     */
+    public static void addNewSvnDir(String path, String projTypeName) throws SVNException {
+
+        String filename = path.substring(path.lastIndexOf(&quot;/&quot;) + 1);
+        String url = SVNUtil.storeUrl + &quot;/&quot; + path.substring(0,path.lastIndexOf(&quot;/&quot;));
+        //模板文件所在目录
+        String copyPath = &quot;svn/&quot; + &quot;PMCLIB/&quot; + projTypeName + &quot;项目&quot;;
+        SVNRepository repository = null;
+        try{
+            repository = SVNUtil.getSVNRepository(url);
+        }catch (SVNException e){
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.CREATE_SVN_DIR_FAIL)
+                    .withErrorMessageArguments(&quot;相对路径错误，请检查后重试&quot;);
+        }
+
+        SVNNodeKind nodeKind = repository.checkPath(filename, -1);
+        //获得版本库中文件的状态（是否存在），参数-1表示是版本库中的最新版本。
+        ISVNEditor editor = repository.getCommitEditor(&quot;logMessage&quot;, null,true,null);
+
+
+        if (nodeKind == SVNNodeKind.NONE){//如果文件夹不存在,创建一个
+            editor.openRoot(-1);
+            editor.addDir(filename,null, -1);
+            editor.closeDir();
+            editor.closeEdit();
+        }else {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.CREATE_SVN_DIR_FAIL)
+                    .withErrorMessageArguments(&quot;文件夹已经存在&quot;);
+        }
+
+    }
+
+    /**
+     * @Author: winterchen
+     * @Description: SVN checkOut到本地
+     * @Date: 2018/2/9
+     * @param wcDir 需要checkOut到本地的文件目录
+     * @param rlUrl
+     */
+    public static void checkOut(File wcDir, String url) throws BusinessException{
+
+        SVNUpdateClient svnUpdateClient = SVNUtil.getSVNUpdateClient();
+        //相关变量赋值
+        SVNURL repositoryURL = null;
+
+
+        //执行check out 操作，返回工作副本的版本号。
+        long workingVersion = -1;
+        try {
+            repositoryURL = SVNURL.parseURIEncoded(url);
+            workingVersion = svnUpdateClient
+                    .doCheckout(repositoryURL, wcDir, SVNRevision.HEAD, SVNRevision.HEAD, SVNDepth.INFINITY,false);
+        } catch (SVNException e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.CREATE_SVN_DIR_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        }catch (Exception e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.CREATE_SVN_DIR_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        }
+    }
+
+    /**
+     * @Author: winterchen
+     * @Description: import本地文件目录（包括其下的所有子目录和文件）到svn
+     * @Date: 2018/2/9
+     * @param localFile
+     * @param url
+     */
+    public static void imoprtToSvnDir(File localFile, String url) throws BusinessException{
+
+        SVNClientManager svnClientManager = SVNUtil.getSVNClientManager();
+        //执行导入操作
+        SVNCommitInfo commitInfo = null;
+        SVNURL repositoryURL = null;
+        try {
+            repositoryURL = SVNURL.parseURIEncoded(url);
+            commitInfo = svnClientManager.getCommitClient().doImport(localFile, repositoryURL,
+                    &quot;import operation!&quot;,null, false,false,SVNDepth.INFINITY);
+        } catch (SVNException e) {
+            throw BusinessException.withErrorCode(ErrorsWepm.JiraAndSvnIntf.CREATE_SVN_DIR_FAIL)
+                    .withErrorMessageArguments(e.getMessage());
+        }
+    }
+
+    /**
+     * @Author: winterchen
+     * @Description: 获取系统临时目录地址
+     * @Date: 2018/2/9
+     * @param dirName
+     */
+    public static String getSysLocalDir(String dirName){
+
+        // 获取系统临时文件目录（兼容Windows和Linux）+PMC+时间戳+用户账号作为临时检出目录
+        String localCheckDir = System.getProperty(tmpdir_property) + &quot;PMC&quot;
+                + new SimpleDateFormat(time_sdf).format(new Date()) + &quot;_&quot; +  dirName;
+        localCheckDir = FilePathUtil.getHttpURLPath(localCheckDir); // 转换地址格式：主要目录分隔符都转为正斜杠/
+
+        return localCheckDir;
+    }
+</code></pre>
+<h2>参看文档</h2>
+<p>api文档：https://svnkit.com/javadoc/index.html</p>
+<h2>最后</h2>
+<blockquote>
+<p>工作中遇到这些需求，在这些需求中不断找寻答案，然后成长。</p>
+</blockquote>
+
+            </div>
+
+
+        </article>
+
+
+        <!-- Comments -->
+        <html lang="en">
+<body>
+
+<div class="comment-allow">
+    <div id="comments-content">
+        <div id="32" class="comments-pan">
+
+            <h3>
+                0
+                Comments
+            </h3>
+
+            <ul class="comments-reply">
+                
+
+
+            </ul>
+            <div class="commentys-form">
+
+                <h4>Leave a comment</h4>
+
+
+                <div class="row">
+
+                    <form  id="comment-form" class="comment-form" role="form"
+                          onsubmit="return TaleComment.subComment();">
+
+                        <input type="hidden" name="coid" id="coid"/>
+                        <input type="hidden" name="cid" id="cid" value="32"/>
+                        <input type="hidden" name="_csrf_token" value="wzFM4VWGHhqwQYhXyhuzS2"/>
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="text" name="author" maxlength="12" id="author"
+                                   placeholder="姓名 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="email" name="mail" id="mail"
+                                   placeholder="邮箱 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="url" name="url" id="url"
+                                   placeholder="网址 (http://)"
+                            />
+
+                        </div>
+
+                        <div class="clearfix"></div>
+
+                        <div class="col-xs-12 col-sm-12 col-md-12">
+
+                                <textarea name="text" id="textarea" placeholder="以上信息可以为空,评论不能为空哦!"
+                                          required="required" minlength="5"
+                                          maxlength="2000"></textarea>
+                        </div>
+
+                        <div class="text-center">
+
+                            <input type="submit" value="Post Comment" id="misubmit"/>
+
+                        </div>
+
+
+                    </form>
+
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+
+    </div>
+
+
+</main>
+
+<!-- main -->
+
+<!-- footer -->
+
+<html lang="en">
+<footer role="footer">
+
+    <!-- logo -->
+
+    <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="Luis" alt="Luis"/></a> </h1>
+
+
+    <!-- logo -->
+
+    <!-- nav -->
+
+    <nav role="footer-nav">
+        <ul>
+            <li><a href="../../index.html" title="Work">Work</a></li>
+            <li><a href="../../about.html" title="About">About</a></li>
+            <li><a href="../index.html" title="Blog">Blog</a></li>
+        </ul>
+    </nav>
+
+    <!-- nav -->
+
+    <ul role="social-icons">
+        
+            
+                
+                    
+                    
+                    
+                        <li><a class="icon resume" target="blank" href="https://resume.winterchen.com/"></a></li>
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon zhihu" target="blank" href="https://www.zhihu.com/people/Winter_chen"></a></li>
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon github" target="blank" href="https://github.com/WinterChenS"></a></li>
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                        <li><a class="icon csdn" target="blank" href="https://blog.csdn.net/Winter_chen001"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                    
+                        <li><a class="icon jianshu" target="blank" href="https://www.jianshu.com/u/a6fa02ee712b"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+    </ul>
+    <p class="copy-right">&copy; 2018 Luis</p>
+    <a class="copy-right" href="http://www.miitbeian.gov.cn/">浙ICP备17056942号-2</a>
+</footer>
+
+<!-- footer -->
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+
+<script src="../../site/js/jquery.min.js" type="text/javascript"></script>
+
+<!-- custom -->
+
+<script src="../../site/js/nav.js" type="text/javascript"></script>
+<script src="../../site/js/custom.js" type="text/javascript"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+
+<script src="../../site/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="../../site/js/effects/masonry.pkgd.min.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/imagesloaded.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/classie.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/AnimOnScroll.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/modernizr.custom.js"></script>
+<script src="https://cdn.bootcss.com/headroom/0.9.1/headroom.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.9.0/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/instantclick/3.0.1/instantclick.min.js"></script>
+
+<!-- jquery.countdown -->
+
+<script src="../../site/js/html5shiv.js" type="text/javascript"></script>
+<script data-no-instant="">
+    /*<![CDATA[*/
+    InstantClick.on('change', function (isInitialLoad) {
+        var blocks = document.querySelectorAll('pre code');
+        for (var i = 0; i < blocks.length; i++) {
+            hljs.highlightBlock(blocks[i]);
+        }
+        if (isInitialLoad === false) {
+            if (typeof ga !== 'undefined') ga('send', 'pageview', location.pathname + location.search);
+        }
+    });
+    InstantClick.init('mousedown');
+    /*]]>*/
+</script>
+<!-- 百度收录自动推送 -->
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        }
+        else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+
+    function linkFirend(link) {
+        window.location.href=link;
+    }
+</script>
+</html>
+
+</body>
+<html lang="en">
+<body>
+<script type="text/javascript">
+    /*<![CDATA[*/
+    (function () {
+        window.TaleComment = {
+            dom: function (id) {
+                return document.getElementById(id);
+            },
+            create: function (tag, attr) {
+                var el = document.createElement(tag);
+                for (var key in attr) {
+                    el.setAttribute(key, attr[key]);
+                }
+                return el;
+            },
+            reply: function (coid) {
+                $('#comment-form input[name=coid]').val(coid);
+                $("html,body").animate({scrollTop: $('div.comment-container').offset().top}, 500);
+                $('#comment-form #textarea').focus();
+            },
+            subComment: function () {
+                $.ajax({
+                    type: 'post',
+                    url: '/blog/comment',
+                    data: $('#comment-form').serialize(),
+                    async: false,
+                    dataType: 'json',
+                    success: function (result) {
+                        $('#comment-form input[name=coid]').val('');
+                        if (result && result.code == 'success') {
+                            alert("评论已提交至后台审核!");
+                            window.location.reload();
+                        } else {
+                            if (result.msg) {
+                                alert(result.msg);
+                            }
+                        }
+                    }
+                });
+                return false;
+            }
+        };
+    })();
+    function getCommentCookie(name) {
+        var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+        if (arr = document.cookie.match(reg))
+            return unescape(decodeURI(arr[2]));
+        else
+            return null;
+    }
+    function addCommentInputValue() {
+        document.getElementById('author').value = getCommentCookie('tale_remember_author');
+        document.getElementById('mail').value = getCommentCookie('tale_remember_mail');
+        document.getElementById('url').value = getCommentCookie('tale_remember_url');
+    }
+    addCommentInputValue();
+    /*]]>*/
+</script>
+</body>
+</html>
+</html>

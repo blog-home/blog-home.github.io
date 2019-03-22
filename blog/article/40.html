@@ -1,0 +1,968 @@
+<!DOCTYPE HTML>
+
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="utf-8">
+
+    <!-- Description, Keywords and Author -->
+
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Java导出Excel文档（poi），并上传到腾讯云对象存储服务器</title>
+    <link rel="shortcut icon" href="http://img.winterchen.com/favicon.ico" type="image/x-icon">
+
+    <meta name="google-site-verification" content="eSQZAmjfibuJ-t-hspvmzqj-n0-YmQI-uVfeHZG3Yw8" />
+    <meta name="baidu-site-verification" content="cWhqikcyTK" />
+    <!-- style -->
+
+    <link href="../../site/css/style.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/style.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.bootcss.com/highlight.js/9.9.0/styles/xcode.min.css" rel="stylesheet"/>
+
+    <!-- style -->
+
+    <!-- bootstrap -->
+
+    <link href="../../site/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+    <!-- responsive -->
+
+    <link href="../../site/css/responsive.css" rel="stylesheet" type="text/css">
+
+    <!-- font-awesome -->
+
+    <link rel="stylesheet" type="text/css" href="../../site/jquery/font-awesome.4.6.0.css">
+
+    <!-- font-awesome -->
+
+    <link href="../../site/css/effects/set2.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/normalize.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/component.css"  rel="stylesheet" type="text/css" >
+</head>
+
+
+<body>
+
+
+<!-- header -->
+
+<html lang="en">
+<header role="header">
+    <div class="container">
+
+        <!-- logo -->
+
+        <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="avana LLC" alt="avana LLC"/></a> </h1>
+
+        <!-- logo -->
+
+        <!-- nav -->
+
+        <nav role="header-nav" class="navy">
+            <ul>
+                <li><a href="../../index.html" title="Work">Work</a></li>
+                <li><a  href="../../about.html" title="About">About</a></li>
+                <li class="nav-active"><a href="../index.html" title="Blog">Blog</a></li>
+            </ul>
+        </nav>
+
+        <!-- nav -->
+
+    </div>
+</header>
+</html>
+
+<!-- header -->
+
+<!-- main -->
+
+<main role="main-inner-wrapper" class="container">
+
+
+    <div class="blog-details">
+
+        <article class="post-details" id="post-details">
+
+            <header role="bog-header" class="bog-header text-center">
+
+                <h3>
+                    <span>12</span> 五月  2018
+                </h3>
+
+                <h2>
+                    Java导出Excel文档（poi），并上传到腾讯云对象存储服务器
+                </h2>
+
+            </header>
+
+
+            <figure>
+
+                <img src="https://luischen.cn/blog/article/images/blog-images/blog-details-image.jpg" alt="" class="img-responsive"/>
+
+            </figure>
+
+            <div id="post-content" class="post-content" itemprop="articleBody">
+                <p><img src="http://img.winterchen.com/john-salzarulo-342868-unsplash.jpg" alt="" /></p>
+<h3>需求</h3>
+<p><strong>后台生成周报月报季报年报Excel，将文件下载链接推送给对应客户</strong></p>
+<!--  more  -->
+<h3>开发思路：</h3>
+<p><strong>1.根据选定日期生成周报，月报，季报，年报数据</strong>
+<strong>2.将这些数据报告生成Excel表格</strong>
+<strong>3.把生成的文件上传到腾讯云对象存储服务器</strong>
+<strong>4.将服务器返回的url存储到数据库</strong></p>
+<h3>工具</h3>
+<p><strong><a href="http://download.csdn.net/download/yaosir12/9475344">poi-3.14-20160307.jar(点击可下载)</a></strong></p>
+<h3>数据</h3>
+<p>获取数据部分省略了</p>
+<h3>代码</h3>
+<p><strong>主方法</strong></p>
+<pre><code class="language-java">public boolean addReportExcelToCloud(ReportResult rr) {
+
+        OutputStream out = new ByteArrayOutputStream();
+        ExcelProjectUtils eu = new ExcelProjectUtils();
+        eu.exportExcel(rr, out);   //&lt;1&gt;
+        ConvertUtil cu = new ConvertUtil();
+        try {
+            ByteArrayInputStream byteInput = cu.parse(out);
+            String rs = PicUploadToYun.uploadExcel(SysContent.getFileRename(&quot;案场数据报.xls&quot;), byteInput);  //&lt;2&gt;
+            addReportExcelToDB(rr, rs);  //&lt;3&gt;
+            return true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return false;
+    }
+</code></pre>
+<p>&lt;1&gt; 将数据生成二进制Excel文件 (方法详细见下面代码)</p>
+<p>&lt;2&gt; 将生成的二进制文件上传到腾讯云对象存储服务器 (方法详细见下面代码)</p>
+<p>&lt;3&gt; 将服务器返回的url存储到数据库 (方法详细见下面代码)</p>
+<pre><code class="language-java">/**
+     * 周报年报生成excel
+     * 
+     * @param report
+     * @param out
+     */
+    public void exportExcel(ReportResult report, OutputStream out) {
+
+        // 判断传入的时间间隔
+        String dateStr = &quot;&quot;;
+        String reportName = &quot;&quot;;
+        List&lt;String&gt; dateCount = DateUtil.getTwoDateEveryDay(report.getStartTime(), report.getEndTime());
+        if (dateCount.size() &lt;= 7) {
+            dateStr += &quot;本周&quot;;
+            reportName += &quot;案场周报&quot;;
+        } else if (dateCount.size() &gt;= 28 &amp;&amp; dateCount.size() &lt;= 31) {
+            dateStr += &quot;本月&quot;;
+            reportName += &quot;案场月报&quot;;
+        } else if (dateCount.size() &gt;= 85 &amp;&amp; dateCount.size() &lt;= 100) {
+            dateStr += &quot;本季度&quot;;
+            reportName += &quot;案场季报&quot;;
+        } else if (dateCount.size() &gt;= 180 &amp;&amp; dateCount.size() &lt;= 185) {
+            dateStr += &quot;本半年度&quot;;
+            reportName += &quot;案场半年报&quot;;
+        } else if (dateCount.size() &gt;= 360 &amp;&amp; dateCount.size() &lt;= 367) {
+            dateStr += &quot;本年度&quot;;
+            reportName += &quot;案场年报&quot;;
+        } else {
+            dateStr += &quot;时间段内&quot;;
+            reportName += &quot;案场阶段报&quot;;
+        }
+        report.setReportName(reportName);
+        // 声明一个工作薄
+        HSSFWorkbook workbook = new HSSFWorkbook();
+        // 生成一个表格
+        HSSFSheet sheet = workbook.createSheet(report.getReportName() + report.getStartTime() + &quot; - &quot; + report.getEndTime());
+        // 设置表格默认列宽度为100个字节
+        sheet.setDefaultColumnWidth((short) 100);
+        /** ----------样式一：标题 ------------ **/
+        HSSFCellStyle style = workbook.createCellStyle();
+        // 设置这些样式
+        style.setBorderLeft(HSSFCellStyle.BORDER_THIN);
+        style.setBorderRight(HSSFCellStyle.BORDER_THIN);
+        //style.setBorderTop(HSSFCellStyle.BORDER_THIN);
+        style.setAlignment(HSSFCellStyle.ALIGN_CENTER);
+        // 生成一个字体
+        HSSFFont font = workbook.createFont();
+        font.setFontName(&quot;宋体&quot;);
+        //font.setColor(HSSFColor.VIOLET.index);
+        font.setFontHeightInPoints((short) 14);
+        font.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+        // 把字体应用到当前的样式
+        style.setFont(font);
+        /***---------样式二：小标题---------***/
+        HSSFCellStyle style2 = workbook.createCellStyle();
+        style2.setBorderLeft(HSSFCellStyle.BORDER_THIN);
+        style2.setBorderRight(HSSFCellStyle.BORDER_THIN);
+        //style2.setBorderTop(HSSFCellStyle.BORDER_THIN);
+        style2.setAlignment(HSSFCellStyle.ALIGN_LEFT);
+
+        //style2.setVerticalAlignment(HSSFCellStyle.VERTICAL_CENTER);
+        // 生成另一个字体
+        HSSFFont font2 = workbook.createFont();
+        //font2.setBoldweight(HSSFFont.BOLDWEIGHT_NORMAL);
+        font2.setFontName(&quot;宋体&quot;);
+        font2.setFontHeightInPoints((short) 11);
+        font2.setBoldweight(HSSFFont.BOLDWEIGHT_BOLD);
+        // 把字体应用到当前的样式
+        style2.setFont(font2);
+
+        /***    样式三：右侧日期       ***/
+        HSSFCellStyle style3 = workbook.createCellStyle();
+        //样式
+        style3.setBorderLeft(HSSFCellStyle.BORDER_THIN);
+        style3.setBorderRight(HSSFCellStyle.BORDER_THIN);
+        style3.setAlignment(HSSFCellStyle.ALIGN_RIGHT);
+        style3.setBorderBottom(HSSFCellStyle.BORDER_THIN);
+        //字体
+        HSSFFont font3 = workbook.createFont();
+        font3.setFontName(&quot;宋体&quot;);
+        font3.setFontHeightInPoints((short) 11);
+        style3.setFont(font3);
+
+        /**       样式四：主内容        ***/
+        HSSFCellStyle style4 = workbook.createCellStyle();
+        //样式
+        style4.setBorderLeft(HSSFCellStyle.BORDER_THIN);
+        style4.setBorderRight(HSSFCellStyle.BORDER_THIN);
+        style4.setAlignment(HSSFCellStyle.ALIGN_LEFT);
+        //字体
+        HSSFFont font4 = workbook.createFont();
+        font4.setFontName(&quot;宋体&quot;);
+        font4.setFontHeightInPoints((short) 11);
+        style4.setFont(font4);
+
+        /**       样式五：底侧空内容       ***/
+        HSSFCellStyle style5 = workbook.createCellStyle();
+        //样式
+        style5.setBorderLeft(HSSFCellStyle.BORDER_THIN);
+        style5.setBorderRight(HSSFCellStyle.BORDER_THIN);
+        style5.setAlignment(HSSFCellStyle.ALIGN_LEFT);
+        style5.setBorderBottom(HSSFCellStyle.BORDER_THIN);
+        //字体
+        HSSFFont font5 = workbook.createFont();
+        font5.setFontName(&quot;宋体&quot;);
+        font5.setFontHeightInPoints((short) 11);
+        style5.setFont(font5);
+
+
+        // 声明一个画图的顶级管理器
+        HSSFPatriarch patriarch = sheet.createDrawingPatriarch();
+        // 定义注释的大小和位置,详见文档
+        HSSFComment comment = patriarch.createComment(new HSSFClientAnchor(0, 0, 0, 0, (short) 4, 2, (short) 6, 5));
+        // 设置注释内容
+        comment.setString(new HSSFRichTextString(&quot;数据报&quot;));
+        // 设置注释作者，当鼠标移动到单元格上是可以在状态栏中看到该内容.
+        comment.setAuthor(&quot;saas&quot;);
+
+        // 产生表格标题行 -- 项目名称
+        HSSFRow row = sheet.createRow(0);
+        createCellAndRow(style4, report.getProjectName(), row);
+
+        // 产生表格标题行 -- 周报名称
+        row = sheet.createRow(1);
+        createCellAndRow(style, report.getReportName(), row);
+
+        // 产生表格标题行 -- 起始时间-终止时间
+        row = sheet.createRow(2);
+        String startTime = DateUtil.format(DateUtil.parse(report.getStartTime(), DateUtil.PATTERN_CLASSICAL_SIMPLE),
+                DateUtil.PATTERN_CLASSICAL_SIMPLE_YMD);
+        String endTime = DateUtil.format(DateUtil.parse(report.getEndTime(), DateUtil.PATTERN_CLASSICAL_SIMPLE),
+                DateUtil.PATTERN_CLASSICAL_SIMPLE_YMD);
+        String date = &quot;日期：&quot; + startTime + &quot; - &quot; + endTime;
+        createCellAndRow(style3, date, row);
+
+        // 接访情况标题
+        row = sheet.createRow(3);
+        createCellAndRow(style2, &quot;·接访情况&quot;, row);
+
+        // 接访客户组数
+        row = sheet.createRow(4);
+        Integer visitCount = report.getVisitCount();
+        String visitNum = &quot;1、&quot; + dateStr + &quot;共计接访客户&quot; + visitCount + &quot;组，来访量&quot;;
+        if (visitCount &lt; 40) {
+            visitNum += &quot;较少，有待提升&quot;;
+        } else if (visitCount &gt;= 41 &amp;&amp; visitCount &lt;= 99) {
+            visitNum += &quot;尚可，还有提高空间&quot;;
+        } else if (visitCount &gt;= 100 &amp;&amp; visitCount &lt;= 139) {
+            visitNum += &quot;很多&quot;;
+        } else if (visitCount &gt; 140) {
+            visitNum += &quot;火爆&quot;;
+        }
+        createCellAndRow(style4, visitNum, row);
+
+        // 有效接访率
+        row = sheet.createRow(5);
+        Double visitRate = new Double(report.getValidVisitRate());
+        String visitRateStr = &quot;2、有效接访率为&quot; + visitRate + &quot;%，接访成效&quot;;
+        if (visitRate &lt; 50) {
+            visitRateStr += &quot;较低，有待提升&quot;;
+        } else if (visitRate &gt;= 50 &amp;&amp; visitRate &lt;= 65) {
+            visitRateStr += &quot;尚可，还有提高空间&quot;;
+        } else if (visitRate &gt;= 65 &amp;&amp; visitRate &lt;= 80) {
+            visitRateStr += &quot;很高&quot;;
+        } else if (visitRate &gt; 80) {
+            visitRateStr += &quot;极高&quot;;
+        }
+        createCellAndRow(style4, visitRateStr, row);
+
+        // 首访有效率
+        row = sheet.createRow(6);
+        Double newVisitRate = new Double(report.getValidNewCuVisitRate());
+        String newVisitStr = &quot;3、首访有效率为&quot; + newVisitRate + &quot;%，来访转储客的概率&quot;;
+        if (newVisitRate &lt; 40) {
+            newVisitStr += &quot;较差，有待提升&quot;;
+        } else if (newVisitRate &gt;= 40 &amp;&amp; newVisitRate &lt;= 60) {
+            newVisitStr += &quot;尚可，还有提高空间&quot;;
+        } else if (newVisitRate &gt;= 60 &amp;&amp; newVisitRate &lt;= 75) {
+            newVisitStr += &quot;很高&quot;;
+        } else if (newVisitRate &gt; 75) {
+            newVisitStr += &quot;极高&quot;;
+        }
+        createCellAndRow(style4, newVisitStr, row);
+
+        // 老客户接访占比
+        row = sheet.createRow(7);
+        Double oldVisitRate = new Double(report.getOldCuVisitRate());
+        String oldVisitStr = &quot;4、老客户接访比为&quot; + oldVisitRate + &quot;%，老客户接访的占比&quot;;
+        if (oldVisitRate &lt; 20) {
+            oldVisitStr += &quot;较低&quot;;
+        } else if (oldVisitRate &gt;= 20 &amp;&amp; oldVisitRate &lt;= 40) {
+            oldVisitStr += &quot;尚可&quot;;
+        } else if (oldVisitRate &gt;= 40 &amp;&amp; oldVisitRate &lt;= 60) {
+            oldVisitStr += &quot;很高&quot;;
+        } else if (oldVisitRate &gt; 60) {
+            oldVisitStr += &quot;极高&quot;;
+        }
+        createCellAndRow(style4, oldVisitStr, row);
+
+        //空行
+        row = sheet.createRow(8);
+        createCellAndRow(style4, &quot;&quot;, row);
+
+        // 储客情况
+        row = sheet.createRow(9);
+        createCellAndRow(style2, &quot;·储客情况&quot;, row);
+
+        // 新增储客
+        row = sheet.createRow(10);
+        Integer newCuCount = report.getNewCuCount();
+        String newCuStr = &quot;1、&quot; + dateStr + &quot;新增储客&quot; + newCuCount + &quot;组，新增量&quot;;
+        if (newCuCount &lt; 30) {
+            newCuStr += &quot;较少，有待提升&quot;;
+        } else if (newCuCount &gt;= 31 &amp;&amp; newCuCount &lt;= 60) {
+            newCuStr += &quot;尚可，还有提高空间&quot;;
+        } else if (newCuCount &gt;= 61 &amp;&amp; newCuCount &lt;= 79) {
+            newCuStr += &quot;很多&quot;;
+        } else if (newCuCount &gt; 80) {
+            newCuStr += &quot;爆满&quot;;
+        }
+        createCellAndRow(style4, newCuStr, row);
+
+        // 累计老客户
+        row = sheet.createRow(11);
+        Integer oldCuCount = report.getTotalOldCuCount();
+        Integer totalCuCount = report.getTotalCuCount();
+        Double oldCuRate = new Double(SysContent.getTwoNumberForValue(oldCuCount, totalCuCount));
+        String oldCuStr = &quot;2、累计老客户总量为&quot; + oldCuCount + &quot;组，老客户占比为&quot; + oldCuRate + &quot;%，显示老客户关注度&quot;;
+        if (oldCuRate &lt; 15) {
+            oldCuStr += &quot;较低，有待提升&quot;;
+        } else if (oldCuRate &gt;= 15 &amp;&amp; oldCuRate &lt;= 25) {
+            oldCuStr += &quot;尚可，还有提高空间&quot;;
+        } else if (oldCuRate &gt;= 25 &amp;&amp; oldCuRate &lt;= 40) {
+            oldCuStr += &quot;很高&quot;;
+        } else if (oldCuRate &gt; 40) {
+            oldCuStr += &quot;极高&quot;;
+        }
+        createCellAndRow(style4, oldCuStr, row);
+
+        // 累计总储客
+        row = sheet.createRow(12);
+        String totalOldCuStr = &quot;3、累计总储客&quot; + totalCuCount + &quot;组&quot;;
+        createCellAndRow(style4, totalOldCuStr, row);
+
+        // 成交情况(周报没有，其他有)
+        if (report.getSubscribeHouseCount() != null) {
+
+            //空行
+            row = sheet.createRow(13);
+            createCellAndRow(style4, &quot;&quot;, row);
+
+            row = sheet.createRow(14);
+            createCellAndRow(style2, &quot;·成交情况&quot;, row);
+
+            // 新增认购套数
+            row = sheet.createRow(15);
+            Integer subscribeHouseCount = report.getSubscribeHouseCount();
+            Double subscribeHouseRate = new Double(report.getSubscribeHouseRate());
+            String subscribeHouseStr = &quot;1、&quot; + dateStr + &quot;新增认购套数&quot; + subscribeHouseCount + &quot;套，较&quot; + dateStr + &quot;同期&quot;;
+            if (subscribeHouseRate &lt; 0) {
+                subscribeHouseStr += &quot;减少&quot;;
+            } else {
+                subscribeHouseStr += &quot;增长&quot;;
+            }
+            subscribeHouseStr += Math.abs(subscribeHouseRate) + &quot;%&quot;;
+            createCellAndRow(style4, subscribeHouseStr, row);
+
+            // 新增认购金额
+            row = sheet.createRow(16);
+            Long subscribeMoney = report.getSubscribeMoney();
+            Double subscribeMoneyRate = new Double(report.getSubscribeMoneyRate());
+            String subscribeMoneyStr = &quot;   新增认购金额&quot; + subscribeMoney + &quot;万元，较&quot; + dateStr + &quot;同期&quot;;
+            if (subscribeHouseRate &lt; 0) {
+                subscribeMoneyStr += &quot;减少&quot;;
+            } else {
+                subscribeMoneyStr += &quot;增长&quot;;
+            }
+            subscribeMoneyStr += Math.abs(subscribeMoneyRate) + &quot;%&quot;;
+            createCellAndRow(style4, subscribeMoneyStr, row);
+
+            // 新增签约套数
+            row = sheet.createRow(17);
+            Integer signCount = report.getSignCount();
+            Double signRate = new Double(report.getSignRate());
+            String signStr = &quot;2、新增签约套数&quot; + signCount + &quot;套,较&quot; + dateStr + &quot;同期&quot;;
+            if (signRate &lt; 0) {
+                signStr += &quot;减少&quot;;
+            } else {
+                signStr += &quot;增长&quot;;
+            }
+            signStr += Math.abs(signRate) + &quot;%&quot;;
+            createCellAndRow(style4, signStr, row);
+
+            // 新增签约金额
+            row = sheet.createRow(18);
+            Long signHouseMoney = report.getSignHouseMoney();
+            Double signHouseMoneyRate = new Double(report.getSignHouseMoneyRate());
+            String signHouseMoneyStr = &quot;   新增签约金额&quot; + signHouseMoney + &quot;万元，较&quot; + dateStr + &quot;同期&quot;;
+            if (signHouseMoneyRate &lt; 0) {
+                signHouseMoneyStr += &quot;减少&quot;;
+            } else {
+                signHouseMoneyStr += &quot;增长&quot;;
+            }
+            signHouseMoneyStr += Math.abs(signHouseMoneyRate) + &quot;%&quot;;
+            createCellAndRow(style4, signHouseMoneyStr, row);
+
+            // 新接访签约率
+            row = sheet.createRow(19);
+            Double newCustomerSignedRate = new Double(report.getNewCustomerSignedRate());
+            String newCustomerSignedStr = &quot;3、&quot; + dateStr + &quot;新客户接访签约率&quot; + newCustomerSignedRate + &quot;%，接访签约概率&quot;;
+            if (newCustomerSignedRate &lt; 4) {
+                newCustomerSignedStr += &quot;较低，与理想值差距大&quot;;
+            } else if (newCustomerSignedRate &gt;= 4 &amp;&amp; newCustomerSignedRate &lt;= 6) {
+                newCustomerSignedStr += &quot;尚可，还有提高空间&quot;;
+            } else if (newCustomerSignedRate &gt;= 6 &amp;&amp; newCustomerSignedRate &lt;= 7) {
+                newCustomerSignedStr += &quot;很高&quot;;
+            } else if (newCustomerSignedRate &gt; 7) {
+                newCustomerSignedStr += &quot;非常高&quot;;
+            }
+            createCellAndRow(style4, newCustomerSignedStr, row);
+
+            // 储客签约率
+            row = sheet.createRow(20);
+            Double momeryCustomerSignedRate = new Double(report.getMomeryCustomerSignedRate());
+            String momeryCustomerSignedStr = &quot;4、储客签约率&quot; + momeryCustomerSignedRate + &quot;%，储备客户签约概率&quot;;
+            if (momeryCustomerSignedRate &lt; 7) {
+                momeryCustomerSignedStr += &quot;较低，与理想值差距大&quot;;
+            } else if (momeryCustomerSignedRate &gt;= 7 &amp;&amp; momeryCustomerSignedRate &lt;= 12) {
+                momeryCustomerSignedStr += &quot;尚可，还有提高空间&quot;;
+            } else if (momeryCustomerSignedRate &gt;= 12 &amp;&amp; momeryCustomerSignedRate &lt;= 15) {
+                momeryCustomerSignedStr += &quot;很高&quot;;
+            } else if (momeryCustomerSignedRate &gt; 15) {
+                momeryCustomerSignedStr += &quot;非常高&quot;;
+            }
+            createCellAndRow(style4, momeryCustomerSignedStr, row);
+
+            // 老客户签约率
+            row = sheet.createRow(21);
+            Double oldCustomerSignedRate = new Double(report.getOldCustomerSignedRate());
+            String oldCustomerSignedStr = &quot;5、老客户签约率为23.2%，高意向客户签约概率&quot;;
+            if (oldCustomerSignedRate &lt; 25) {
+                oldCustomerSignedStr += &quot;较低，与理想值差距大&quot;;
+            } else if (oldCustomerSignedRate &gt;= 25 &amp;&amp; oldCustomerSignedRate &lt;= 35) {
+                oldCustomerSignedStr += &quot;尚可，还有提高空间&quot;;
+            } else if (oldCustomerSignedRate &gt;= 35 &amp;&amp; oldCustomerSignedRate &lt;= 50) {
+                oldCustomerSignedStr += &quot;很高&quot;;
+            } else if (oldCustomerSignedRate &gt; 50) {
+                oldCustomerSignedStr += &quot;非常高&quot;;
+            }
+            createCellAndRow(style4, oldCustomerSignedStr, row);
+
+            // 认购客户签约率
+            row = sheet.createRow(22);
+            Double contratCuSignedRate = new Double(report.getContratCuSignedRate());
+            String contratCuSignedStr = &quot;6、认购客户签约率为92%，已认购客户签约率&quot;;
+            if (contratCuSignedRate &lt; 95) {
+                contratCuSignedStr += &quot;不高，较多退订或拒签&quot;;
+            } else if (contratCuSignedRate &gt;= 95 &amp;&amp; contratCuSignedRate &lt;= 97) {
+                contratCuSignedStr += &quot;尚可，一定数量退订或拒签&quot;;
+            } else if (contratCuSignedRate &gt;= 97 &amp;&amp; contratCuSignedRate &lt;= 99) {
+                contratCuSignedStr += &quot;很高&quot;;
+            } else if (contratCuSignedRate &gt; 99) {
+                contratCuSignedStr += &quot;非常高&quot;;
+            }
+            createCellAndRow(style4, contratCuSignedStr, row);
+
+            //空行
+            row = sheet.createRow(23);
+            createCellAndRow(style4, &quot;&quot;, row);
+
+            //底侧
+            row = sheet.createRow(24);
+            createCellAndRow(style5, &quot;&quot;, row);
+
+        }else{
+            row = sheet.createRow(13);
+            createCellAndRow(style5, &quot;&quot;, row);
+        }
+
+        try {
+            workbook.write(out);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void createCellAndRow(HSSFCellStyle style, String text, HSSFRow row) {
+        HSSFCell cell = row.createCell(0);
+        cell.setCellStyle(style);
+        HSSFRichTextString rs = new HSSFRichTextString(text);
+        cell.setCellValue(rs);
+    }
+</code></pre>
+<pre><code class="language-java">/**
+     * 上传Excel
+     * @param fileNewName
+     * @param uploadFile
+     * @return
+     */
+    public static String uploadExcel(String fileNewName,ByteArrayInputStream uploadFile){
+        // 设置用户属性, 包括appid, secretId和SecretKey
+                // 这些属性可以通过cos控制台获取(https://console.qcloud.com/cos)
+                String version = PropertiesUtil.getValue(&quot;version&quot;);
+                     long appId = &quot;你的appId&quot;;
+                     String secretId = &quot;你的secretId &quot;;
+                     String secretKey = &quot;你的secretKey &quot;;
+
+                // 设置要操作的bucket
+                String bucketName = &quot;root&quot;;
+                // 初始化客户端配置
+                ClientConfig clientConfig = new ClientConfig();
+                // 设置bucket所在的区域，比如广州(gz), 天津(tj)
+                clientConfig.setRegion(&quot;sh&quot;);
+                // 初始化秘钥信息
+                Credentials cred = new Credentials(appId, secretId, secretKey);
+                // 初始化cosClient
+                COSClient cosClient = new COSClient(clientConfig, cred);
+                // 文件操作 //
+                // 1. 上传文件(默认不覆盖)
+                // 将本地的local_file_1.txt上传到bucket下的根分区下,并命名为sample_file.txt
+                // 默认不覆盖, 如果cos上已有文件, 则返回错误
+                String cosFilePath = &quot;/report/&quot; + fileNewName;
+
+                byte[] localFilePath1 = null;
+                try {
+                    localFilePath1 = ConvertUtil.toByteArray(uploadFile);
+                } catch (IOException e1) {
+                    // TODO Auto-generated catch block
+                    e1.printStackTrace();
+                }
+
+                UploadFileRequest uploadFileRequest = new UploadFileRequest(bucketName, cosFilePath, localFilePath1);
+                uploadFileRequest.setEnableShaDigest(false);
+                String uploadFileRet = cosClient.uploadFile(uploadFileRequest);
+                System.out.println(&quot;upload file ret:&quot; + uploadFileRet);
+                //获取保存路径
+                ObjectMapper om = new ObjectMapper();
+                HashMap map = new HashMap&lt;&gt;();
+                try {
+                    map = om.readValue(uploadFileRet, HashMap.class);
+                } catch (JsonParseException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (JsonMappingException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
+                HashMap&lt;String, String&gt; value = (HashMap&lt;String, String&gt;) map.get(&quot;data&quot;);
+                return value.get(&quot;source_url&quot;);
+
+    }
+</code></pre>
+<pre><code class="language-java">public boolean addReportExcelToDB(ReportResult rr, String url) {
+
+        if(StringUtils.isEmpty(url)){
+            return false;
+        }
+        if(rr == null){
+            return false;
+        }
+
+        ProjectReportRecord prr = new ProjectReportRecord();
+        prr.setCreateTime(DateUtil.format(new Date()));
+        prr.setProjectId(rr.getProjectId());
+        prr.setProjectName(rr.getProjectName());
+        prr.setStartTime(rr.getStartTime());
+        prr.setEndTime(rr.getEndTime());
+        prr.setUrl(url);
+        String report = &quot;&quot;;
+        if(&quot;案场周报&quot;.equals(rr.getReportName())){
+            report = &quot;week&quot;;
+        }else if(&quot;案场月报&quot;.equals(rr.getReportName())){
+            report = &quot;month&quot;;
+        }else if(&quot;案场季报&quot;.equals(rr.getReportName())){
+            report = &quot;quarter&quot;;
+        }else if(&quot;案场半年报&quot;.equals(rr.getReportName())){
+            report = &quot;half&quot;;
+        }else if(&quot;案场年报&quot;.equals(rr.getReportName())){
+            report = &quot;year&quot;;
+        }else{
+            report = &quot;other&quot;;
+        }
+        prr.setReportName(report);
+
+        baseDao.save(prr);
+
+        return true;
+    }
+</code></pre>
+<h3>生成的文件示例</h3>
+<p><strong>周报或者其他报告都是后台自动根据时间进行判断的</strong></p>
+<p><strong>周报</strong>
+<img src="http://img.winterchen.com/20171020105154962.png" alt="这里写图片描述" /></p>
+<p><strong>季报</strong></p>
+<p><img src="http://img.winterchen.com/20171020105212669.png" alt="这里写图片描述" /></p>
+<p>以上</p>
+
+            </div>
+
+
+        </article>
+
+
+        <!-- Comments -->
+        <html lang="en">
+<body>
+
+<div class="comment-allow">
+    <div id="comments-content">
+        <div id="40" class="comments-pan">
+
+            <h3>
+                0
+                Comments
+            </h3>
+
+            <ul class="comments-reply">
+                
+
+
+            </ul>
+            <div class="commentys-form">
+
+                <h4>Leave a comment</h4>
+
+
+                <div class="row">
+
+                    <form  id="comment-form" class="comment-form" role="form"
+                          onsubmit="return TaleComment.subComment();">
+
+                        <input type="hidden" name="coid" id="coid"/>
+                        <input type="hidden" name="cid" id="cid" value="40"/>
+                        <input type="hidden" name="_csrf_token" value="PJ1tFfunF7eoTwPnAkFmO2"/>
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="text" name="author" maxlength="12" id="author"
+                                   placeholder="姓名 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="email" name="mail" id="mail"
+                                   placeholder="邮箱 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="url" name="url" id="url"
+                                   placeholder="网址 (http://)"
+                            />
+
+                        </div>
+
+                        <div class="clearfix"></div>
+
+                        <div class="col-xs-12 col-sm-12 col-md-12">
+
+                                <textarea name="text" id="textarea" placeholder="以上信息可以为空,评论不能为空哦!"
+                                          required="required" minlength="5"
+                                          maxlength="2000"></textarea>
+                        </div>
+
+                        <div class="text-center">
+
+                            <input type="submit" value="Post Comment" id="misubmit"/>
+
+                        </div>
+
+
+                    </form>
+
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+
+    </div>
+
+
+</main>
+
+<!-- main -->
+
+<!-- footer -->
+
+<html lang="en">
+<footer role="footer">
+
+    <!-- logo -->
+
+    <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="Luis" alt="Luis"/></a> </h1>
+
+
+    <!-- logo -->
+
+    <!-- nav -->
+
+    <nav role="footer-nav">
+        <ul>
+            <li><a href="../../index.html" title="Work">Work</a></li>
+            <li><a href="../../about.html" title="About">About</a></li>
+            <li><a href="../index.html" title="Blog">Blog</a></li>
+        </ul>
+    </nav>
+
+    <!-- nav -->
+
+    <ul role="social-icons">
+        
+            
+                
+                    
+                    
+                    
+                        <li><a class="icon resume" target="blank" href="https://resume.winterchen.com/"></a></li>
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon zhihu" target="blank" href="https://www.zhihu.com/people/Winter_chen"></a></li>
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon github" target="blank" href="https://github.com/WinterChenS"></a></li>
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                        <li><a class="icon csdn" target="blank" href="https://blog.csdn.net/Winter_chen001"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                    
+                        <li><a class="icon jianshu" target="blank" href="https://www.jianshu.com/u/a6fa02ee712b"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+    </ul>
+    <p class="copy-right">&copy; 2018 Luis</p>
+    <a class="copy-right" href="http://www.miitbeian.gov.cn/">浙ICP备17056942号-2</a>
+</footer>
+
+<!-- footer -->
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+
+<script src="../../site/js/jquery.min.js" type="text/javascript"></script>
+
+<!-- custom -->
+
+<script src="../../site/js/nav.js" type="text/javascript"></script>
+<script src="../../site/js/custom.js" type="text/javascript"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+
+<script src="../../site/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="../../site/js/effects/masonry.pkgd.min.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/imagesloaded.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/classie.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/AnimOnScroll.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/modernizr.custom.js"></script>
+<script src="https://cdn.bootcss.com/headroom/0.9.1/headroom.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.9.0/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/instantclick/3.0.1/instantclick.min.js"></script>
+
+<!-- jquery.countdown -->
+
+<script src="../../site/js/html5shiv.js" type="text/javascript"></script>
+<script data-no-instant="">
+    /*<![CDATA[*/
+    InstantClick.on('change', function (isInitialLoad) {
+        var blocks = document.querySelectorAll('pre code');
+        for (var i = 0; i < blocks.length; i++) {
+            hljs.highlightBlock(blocks[i]);
+        }
+        if (isInitialLoad === false) {
+            if (typeof ga !== 'undefined') ga('send', 'pageview', location.pathname + location.search);
+        }
+    });
+    InstantClick.init('mousedown');
+    /*]]>*/
+</script>
+<!-- 百度收录自动推送 -->
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        }
+        else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+
+    function linkFirend(link) {
+        window.location.href=link;
+    }
+</script>
+</html>
+
+</body>
+<html lang="en">
+<body>
+<script type="text/javascript">
+    /*<![CDATA[*/
+    (function () {
+        window.TaleComment = {
+            dom: function (id) {
+                return document.getElementById(id);
+            },
+            create: function (tag, attr) {
+                var el = document.createElement(tag);
+                for (var key in attr) {
+                    el.setAttribute(key, attr[key]);
+                }
+                return el;
+            },
+            reply: function (coid) {
+                $('#comment-form input[name=coid]').val(coid);
+                $("html,body").animate({scrollTop: $('div.comment-container').offset().top}, 500);
+                $('#comment-form #textarea').focus();
+            },
+            subComment: function () {
+                $.ajax({
+                    type: 'post',
+                    url: '/blog/comment',
+                    data: $('#comment-form').serialize(),
+                    async: false,
+                    dataType: 'json',
+                    success: function (result) {
+                        $('#comment-form input[name=coid]').val('');
+                        if (result && result.code == 'success') {
+                            alert("评论已提交至后台审核!");
+                            window.location.reload();
+                        } else {
+                            if (result.msg) {
+                                alert(result.msg);
+                            }
+                        }
+                    }
+                });
+                return false;
+            }
+        };
+    })();
+    function getCommentCookie(name) {
+        var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+        if (arr = document.cookie.match(reg))
+            return unescape(decodeURI(arr[2]));
+        else
+            return null;
+    }
+    function addCommentInputValue() {
+        document.getElementById('author').value = getCommentCookie('tale_remember_author');
+        document.getElementById('mail').value = getCommentCookie('tale_remember_mail');
+        document.getElementById('url').value = getCommentCookie('tale_remember_url');
+    }
+    addCommentInputValue();
+    /*]]>*/
+</script>
+</body>
+</html>
+</html>

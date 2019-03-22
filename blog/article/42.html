@@ -1,0 +1,929 @@
+<!DOCTYPE HTML>
+
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="utf-8">
+
+    <!-- Description, Keywords and Author -->
+
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>用FastDFS一步步搭建文件管理系统(CentOS 7)</title>
+    <link rel="shortcut icon" href="http://img.winterchen.com/favicon.ico" type="image/x-icon">
+
+    <meta name="google-site-verification" content="eSQZAmjfibuJ-t-hspvmzqj-n0-YmQI-uVfeHZG3Yw8" />
+    <meta name="baidu-site-verification" content="cWhqikcyTK" />
+    <!-- style -->
+
+    <link href="../../site/css/style.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/style.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.bootcss.com/highlight.js/9.9.0/styles/xcode.min.css" rel="stylesheet"/>
+
+    <!-- style -->
+
+    <!-- bootstrap -->
+
+    <link href="../../site/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+    <!-- responsive -->
+
+    <link href="../../site/css/responsive.css" rel="stylesheet" type="text/css">
+
+    <!-- font-awesome -->
+
+    <link rel="stylesheet" type="text/css" href="../../site/jquery/font-awesome.4.6.0.css">
+
+    <!-- font-awesome -->
+
+    <link href="../../site/css/effects/set2.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/normalize.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/component.css"  rel="stylesheet" type="text/css" >
+</head>
+
+
+<body>
+
+
+<!-- header -->
+
+<html lang="en">
+<header role="header">
+    <div class="container">
+
+        <!-- logo -->
+
+        <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="avana LLC" alt="avana LLC"/></a> </h1>
+
+        <!-- logo -->
+
+        <!-- nav -->
+
+        <nav role="header-nav" class="navy">
+            <ul>
+                <li><a href="../../index.html" title="Work">Work</a></li>
+                <li><a  href="../../about.html" title="About">About</a></li>
+                <li class="nav-active"><a href="../index.html" title="Blog">Blog</a></li>
+            </ul>
+        </nav>
+
+        <!-- nav -->
+
+    </div>
+</header>
+</html>
+
+<!-- header -->
+
+<!-- main -->
+
+<main role="main-inner-wrapper" class="container">
+
+
+    <div class="blog-details">
+
+        <article class="post-details" id="post-details">
+
+            <header role="bog-header" class="bog-header text-center">
+
+                <h3>
+                    <span>12</span> 五月  2018
+                </h3>
+
+                <h2>
+                    用FastDFS一步步搭建文件管理系统(CentOS 7)
+                </h2>
+
+            </header>
+
+
+            <figure>
+
+                <img src="https://luischen.cn/blog/article/images/blog-images/blog-details-image.jpg" alt="" class="img-responsive"/>
+
+            </figure>
+
+            <div id="post-content" class="post-content" itemprop="articleBody">
+                <p><img src="http://img.winterchen.com/ornella-binni-224979-unsplash.jpg" alt="" /></p>
+<h1>一、FastDFS介绍</h1>
+<p>开源地址：https://github.com/happyfish100
+参考：<a href="http://blog.chinaunix.net/uid-20196318-id-4058561.html">分布式文件系统FastDFS设计原理</a>
+参考：<a href="http://www.cnblogs.com/Leo_wl/p/6731647.html">FastDFS分布式文件系统</a></p>
+<!--  more  -->
+<h2>1.简介</h2>
+<p>FastDFS 是一个开源的高性能分布式文件系统（DFS）。 它的主要功能包括：文件存储，文件同步和文件访问，以及高容量和负载平衡。主要解决了海量数据存储问题，特别适合以中小文件（建议范围：4KB &lt; file_size &lt;500MB）为载体的在线服务。</p>
+<p>FastDFS 系统有三个角色：跟踪服务器(Tracker Server)、存储服务器(Storage Server)和客户端(Client)。</p>
+<p>　　<strong>Tracker Server</strong>：跟踪服务器，主要做调度工作，起到均衡的作用；负责管理所有的 storage server和 group，每个 storage 在启动后会连接 Tracker，告知自己所属 group 等信息，并保持周期性心跳。</p>
+<p>　　<strong>Storage Server</strong>：存储服务器，主要提供容量和备份服务；以 group 为单位，每个 group 内可以有多台 storage server，数据互为备份。</p>
+<p>　　<strong>Client</strong>：客户端，上传下载数据的服务器，也就是我们自己的项目所部署在的服务器。
+　　
+　　<img src="http://img.winterchen.com/WX2s0180410-0ss92113@2x.png" alt="服务基本架构" />
+　　</p>
+<h2>2、FastDFS的存储策略</h2>
+<p>为了支持大容量，存储节点（服务器）采用了分卷（或分组）的组织方式。存储系统由一个或多个卷组成，卷与卷之间的文件是相互独立的，所有卷的文件容量累加就是整个存储系统中的文件容量。一个卷可以由一台或多台存储服务器组成，一个卷下的存储服务器中的文件都是相同的，卷中的多台存储服务器起到了冗余备份和负载均衡的作用。</p>
+<p>在卷中增加服务器时，同步已有的文件由系统自动完成，同步完成后，系统自动将新增服务器切换到线上提供服务。当存储空间不足或即将耗尽时，可以动态添加卷。只需要增加一台或多台服务器，并将它们配置为一个新的卷，这样就扩大了存储系统的容量。</p>
+<h2>3、FastDFS的上传过程</h2>
+<p>FastDFS向使用者提供基本文件访问接口，比如upload、download、append、delete等，以客户端库的方式提供给用户使用。</p>
+<p>Storage Server会定期的向Tracker Server发送自己的存储信息。当Tracker Server Cluster中的Tracker Server不止一个时，各个Tracker之间的关系是对等的，所以客户端上传时可以选择任意一个Tracker。</p>
+<p>当Tracker收到客户端上传文件的请求时，会为该文件分配一个可以存储文件的group，当选定了group后就要决定给客户端分配group中的哪一个storage server。当分配好storage server后，客户端向storage发送写文件请求，storage将会为文件分配一个数据存储目录。然后为文件分配一个fileid，最后根据以上的信息生成文件名存储文件。</p>
+<p><img src="http://img.winterchen.com/WX20180410-092127@2x.png" alt="FastDFS的上传过程" /></p>
+<h2>4、FastDFS的文件同步</h2>
+<p>写文件时，客户端将文件写至group内一个storage server即认为写文件成功，storage server写完文件后，会由后台线程将文件同步至同group内其他的storage server。</p>
+<p>每个storage写文件后，同时会写一份binlog，binlog里不包含文件数据，只包含文件名等元信息，这份binlog用于后台同步，storage会记录向group内其他storage同步的进度，以便重启后能接上次的进度继续同步；进度以时间戳的方式进行记录，所以最好能保证集群内所有server的时钟保持同步。</p>
+<p>storage的同步进度会作为元数据的一部分汇报到tracker上，tracke在选择读storage的时候会以同步进度作为参考。</p>
+<h2>5、FastDFS的文件下载</h2>
+<p>客户端uploadfile成功后，会拿到一个storage生成的文件名，接下来客户端根据这个文件名即可访问到该文件。
+<img src="http://img.winterchen.com/WX20180410-092140@2x.png" alt="FastDFS的文件下载过程" /></p>
+<p>跟upload file一样，在downloadfile时客户端可以选择任意tracker server。tracker发送download请求给某个tracker，必须带上文件名信息，tracke从文件名中解析出文件的group、大小、创建时间等信息，然后为该请求选择一个storage用来服务读请求。</p>
+<h1>二、安装FastDFS环境</h1>
+<h2>0、前言</h2>
+<p>操作环境：CentOS7 X64，以下操作都是单机环境。</p>
+<p>我把所有的安装包下载到/softpackages/下，解压到当前目录。</p>
+<p>先做一件事，修改hosts，将文件服务器的ip与域名映射(单机TrackerServer环境)，因为后面很多配置里面都需要去配置服务器地址，ip变了，就只需要修改hosts即可。</p>
+<pre><code># vim /etc/hosts
+
+增加如下一行，这是我的IP
+118.25.36.41 luischen.cn
+
+如果要本机访问虚拟机，在C:\Windows\System32\drivers\etc\hosts中同样增加一行
+</code></pre>
+<h2>1、下载安装 libfastcommon</h2>
+<p>libfastcommon是从 FastDFS 和 FastDHT 中提取出来的公共 C 函数库，基础环境，安装即可 。</p>
+<h3>① 下载libfastcommon</h3>
+<pre><code># wget https://github.com/happyfish100/libfastcommon/archive/V1.0.7.tar.gz
+</code></pre>
+<h3>② 解压</h3>
+<pre><code># tar -zxvf V1.0.7.tar.gz
+# cd libfastcommon-1.0.7
+</code></pre>
+<h3>③ 编译、安装</h3>
+<pre><code># ./make.sh
+# ./make.sh install
+</code></pre>
+<h3>④ libfastcommon.so 安装到了/usr/lib64/libfastcommon.so，但是FastDFS主程序设置的lib目录是/usr/local/lib，所以需要创建软链接。</h3>
+<pre><code># ln -s /usr/lib64/libfastcommon.so /usr/local/lib/libfastcommon.so
+# ln -s /usr/lib64/libfastcommon.so /usr/lib/libfastcommon.so
+# ln -s /usr/lib64/libfdfsclient.so /usr/local/lib/libfdfsclient.so
+# ln -s /usr/lib64/libfdfsclient.so /usr/lib/libfdfsclient.so
+</code></pre>
+<h2>2、下载安装FastDFS</h2>
+<h3>① 下载FastDFS</h3>
+<pre><code># wget https://github.com/happyfish100/fastdfs/archive/V5.05.tar.gz
+</code></pre>
+<h3>② 解压</h3>
+<pre><code># tar -zxvf V5.05.tar.gz
+# cd fastdfs-5.05
+</code></pre>
+<h3>③ 编译、安装</h3>
+<pre><code># ./make.sh
+# ./make.sh install
+</code></pre>
+<h3>④ 默认安装方式安装后的相应文件与目录</h3>
+<ul>
+<li>A、服务脚本：</li>
+</ul>
+<pre><code>/etc/init.d/fdfs_storaged
+/etc/init.d/fdfs_tracker
+</code></pre>
+<ul>
+<li>B、配置文件（这三个是作者给的样例配置文件） :</li>
+</ul>
+<pre><code>/etc/fdfs/client.conf.sample
+/etc/fdfs/storage.conf.sample
+/etc/fdfs/tracker.conf.sample
+</code></pre>
+<ul>
+<li>C、命令工具在 /usr/bin/ 目录下：</li>
+</ul>
+<pre><code>fdfs_appender_test
+fdfs_appender_test1
+fdfs_append_file
+fdfs_crc32
+fdfs_delete_file
+fdfs_download_file
+fdfs_file_info
+fdfs_monitor
+fdfs_storaged
+fdfs_test
+fdfs_test1
+fdfs_trackerd
+fdfs_upload_appender
+fdfs_upload_file
+stop.sh
+restart.sh
+</code></pre>
+<h3>⑤ FastDFS 服务脚本设置的 bin 目录是 /usr/local/bin， 但实际命令安装在 /usr/bin/ 下。</h3>
+<ul>
+<li>建立 /usr/bin 到 /usr/local/bin 的软链接</li>
+</ul>
+<pre><code># ln -s /usr/bin/fdfs_trackerd   /usr/local/bin
+# ln -s /usr/bin/fdfs_storaged   /usr/local/bin
+# ln -s /usr/bin/stop.sh         /usr/local/bin
+# ln -s /usr/bin/restart.sh      /usr/local/bin
+</code></pre>
+<h2>3、配置FastDFS跟踪器(Tracker)</h2>
+<p>配置文件详细说明参考：<a href="http://bbs.chinaunix.net/forum.php?mod=viewthread&tid=1941456&extra=page=1&filter=digest&digest=1">FastDFS 配置文件详解</a></p>
+<h3>① 进入 /etc/fdfs，复制 FastDFS 跟踪器样例配置文件 tracker.conf.sample，并重命名为 tracker.conf。</h3>
+<pre><code># cd /etc/fdfs
+# cp tracker.conf.sample tracker.conf
+# vim tracker.conf
+</code></pre>
+<h3>② 编辑tracker.conf ，修改下，其它的默认即可。</h3>
+<pre><code># 配置文件是否不生效，false 为生效
+disabled=false
+
+# 提供服务的端口
+port=22122
+
+# Tracker 数据和日志目录地址(根目录必须存在,子目录会自动创建)----------【需要修改】
+base_path=/data/fastdfs/tracker
+
+# HTTP 服务端口----------【需要修改】
+http.server_port=80
+</code></pre>
+<h3>③ 创建tracker基础数据目录，即base_path对应的目录</h3>
+<pre><code>mkdir -p /data/fastdfs/tracker
+</code></pre>
+<h3>④ 防火墙中打开跟踪端口（默认的22122）</h3>
+<p>centos7的防火墙由firewalld进行管理</p>
+<ul>
+<li>查看状态：<code>systemctl status firewalld</code></li>
+<li>开启：<code>systemctl start firewalld</code></li>
+<li>关闭:  <code>systemctl stop firewalld</code></li>
+<li>添加开放IP：<code>firewall-cmd --permanent --zone=public --add-port=22122/tcp</code></li>
+<li>重启： <code>firewall-cmd --reload</code></li>
+</ul>
+<p>查看服务的运行状态：<code>netstat -unltp|grep fdfs</code></p>
+<h3>⑤ 启动Tracker</h3>
+<p>初次成功启动，会在 /data/fastdfs/tracker/ (配置的base_path)下创建 data、logs 两个目录。</p>
+<pre><code>可以用这种方式启动
+# /etc/init.d/fdfs_trackerd start
+
+也可以用这种方式启动，前提是上面创建了软链接，后面都用这种方式
+# service fdfs_trackerd start
+</code></pre>
+<p>查看 FastDFS Tracker 是否已成功启动 ，22122端口正在被监听，则算是Tracker服务安装成功</p>
+<pre><code># netstat -unltp|grep fdfs
+</code></pre>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180409-192214@2x.png" alt="" /></p>
+<p>关闭Tracker命令：</p>
+<pre><code># service fdfs_trackerd stop
+</code></pre>
+<h3>⑥ 设置Tracker开机启动</h3>
+<pre><code># chkconfig fdfs_trackerd on
+
+或者：
+# vim /etc/rc.d/rc.local
+加入配置：
+/etc/init.d/fdfs_trackerd start
+</code></pre>
+<h3>⑦ tracker server 目录及文件结构</h3>
+<p>Tracker服务启动成功后，会在base_path下创建data、logs两个目录。目录结构如下：</p>
+<pre><code>${base_path}
+  |__data
+  |   |__storage_groups.dat：存储分组信息
+  |   |__storage_servers.dat：存储服务器列表
+  |__logs
+  |   |__trackerd.log： tracker server 日志文件
+</code></pre>
+<h2>4、配置 FastDFS 存储 (Storage)</h2>
+<h3>① 进入 /etc/fdfs 目录，复制 FastDFS 存储器样例配置文件 storage.conf.sample，并重命名为 storage.conf</h3>
+<pre><code># cd /etc/fdfs
+# cp storage.conf.sample storage.conf
+# vim storage.conf
+</code></pre>
+<h3>② 编辑storage.conf</h3>
+<p>修改以下，其它的默认即可。</p>
+<pre><code># 配置文件是否不生效，false 为生效
+disabled=false 
+
+# 指定此 storage server 所在 组(卷)
+group_name=group1
+
+# storage server 服务端口
+port=23000
+
+# 心跳间隔时间，单位为秒 (这里是指主动向 tracker server 发送心跳)
+heart_beat_interval=30
+
+# Storage 数据和日志目录地址(根目录必须存在，子目录会自动生成)----------【需要修改】
+base_path=/data/fastdfs/storage
+
+# 存放文件时 storage server 支持多个路径。这里配置存放文件的基路径数目，通常只配一个目录。
+store_path_count=1
+
+
+# 逐一配置 store_path_count 个路径，索引号基于 0。
+# 如果不配置 store_path0，那它就和 base_path 对应的路径一样。----------【需要修改】
+store_path0=/data/fastdfs/file
+
+# FastDFS 存储文件时，采用了两级目录。这里配置存放文件的目录个数。 
+# 如果本参数只为 N（如： 256），那么 storage server 在初次运行时，会在 store_path 下自动创建 N * N 个存放文件的子目录。
+subdir_count_per_path=256
+
+# tracker_server 的列表 ，会主动连接 tracker_server
+# 有多个 tracker server 时，每个 tracker server 写一行----------【需要修改】
+tracker_server=118.25.36.41:22122
+
+# 允许系统同步的时间段 (默认是全天) 。一般用于避免高峰同步产生一些问题而设定。
+sync_start_time=00:00
+sync_end_time=23:59
+# 访问端口----------------------------------------【需要修改】
+http.server_port=80
+</code></pre>
+<h3>③ 创建Storage基础数据目录，对应base_path目录</h3>
+<pre><code># mkdir -p /data/fastdfs/storage
+
+# 这是配置的store_path0路径
+# mkdir -p /data/fastdfs/file
+</code></pre>
+<h3>④ 防火墙中打开存储器端口（默认的 23000）</h3>
+<pre><code># 添加开放IP：
+firewall-cmd --permanent --zone=public --add-port=23000/tcp
+# 重启： 
+firewall-cmd --reload
+</code></pre>
+<h3>⑤ 启动 Storage</h3>
+<p>启动Storage前确保Tracker是启动的。初次启动成功，会在 /data/fastdfs/storage 目录下创建 data、 logs 两个目录。</p>
+<pre><code>可以用这种方式启动
+# /etc/init.d/fdfs_storaged start
+
+也可以用这种方式，后面都用这种
+# service fdfs_storaged start
+</code></pre>
+<p>查看 Storage 是否成功启动，23000 端口正在被监听，就算 Storage 启动成功。</p>
+<pre><code># netstat -unltp|grep fdfs
+</code></pre>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180409-194149@2x.png" alt="" /></p>
+<p>关闭Storage命令：</p>
+<pre><code># service fdfs_storaged stop
+</code></pre>
+<p>查看Storage和Tracker是否在通信：</p>
+<pre><code>/usr/bin/fdfs_monitor /etc/fdfs/storage.conf
+</code></pre>
+<h3>⑥ 设置 Storage 开机启动</h3>
+<pre><code># chkconfig fdfs_storaged on
+
+或者：
+# vim /etc/rc.d/rc.local
+加入配置：
+/etc/init.d/fdfs_storaged start
+</code></pre>
+<h3>⑦ Storage 目录</h3>
+<p>同 Tracker，Storage 启动成功后，在base_path 下创建了data、logs目录，记录着 Storage Server 的信息。</p>
+<p>在 store_path0 目录下，创建了N*N个子目录：</p>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180409-194639@2x.png" alt="" /></p>
+<h2>5、文件上传测试</h2>
+<h3>① 修改 Tracker 服务器中的客户端配置文件</h3>
+<pre><code># cd /etc/fdfs
+# cp client.conf.sample client.conf
+# vim client.conf
+</code></pre>
+<p>修改如下配置即可，其它默认。</p>
+<pre><code># Client 的数据和日志目录
+base_path=/data/fastdfs/client
+
+# Tracker端口
+tracker_server=118.25.36.41:22122
+</code></pre>
+<h3>② 上传测试</h3>
+<p>首先需要创建client目录</p>
+<pre><code>mkdir -p /data/fastdfs/client
+</code></pre>
+<p>在linux内部执行如下命令上传 namei.jpeg 图片</p>
+<pre><code> # /usr/bin/fdfs_upload_file /etc/fdfs/client.conf storage.conf
+</code></pre>
+<p>上传成功后返回文件ID号：</p>
+<pre><code> group1/M00/00/00/Cmlg2FrLU9eAVJ-ZAAAejzOgbzU97.conf
+</code></pre>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180409-195200@2x.png" alt="上传成功" /></p>
+<p>返回的文件ID由group、存储目录、两级子目录、fileid、文件后缀名（由客户端指定，主要用于区分文件类型）拼接而成。</p>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/1523275193927.jpg" alt="" /></p>
+<h1>三、安装Nginx</h1>
+<p>上面将文件上传成功了，但我们无法下载。因此安装Nginx作为服务器以支持Http方式访问文件。同时，后面安装FastDFS的Nginx模块也需要Nginx环境。</p>
+<p>Nginx只需要安装到StorageServer所在的服务器即可，用于访问文件。我这里由于是单机，TrackerServer和StorageServer在一台服务器上。</p>
+<h2>1、安装nginx所需环境</h2>
+<h3>① gcc 安装</h3>
+<pre><code># yum install gcc-c++
+</code></pre>
+<h3>② PCRE pcre-devel 安装</h3>
+<pre><code># yum install -y pcre pcre-devel
+</code></pre>
+<h3>③ zlib 安装</h3>
+<pre><code># yum install -y zlib zlib-devel
+</code></pre>
+<h3>④ OpenSSL 安装</h3>
+<pre><code># yum install -y openssl openssl-devel
+</code></pre>
+<h2>2、安装Nginx</h2>
+<h3>① 下载nginx</h3>
+<pre><code># wget -c https://nginx.org/download/nginx-1.12.1.tar.gz
+</code></pre>
+<h3>② 解压</h3>
+<pre><code># tar -zxvf nginx-1.12.1.tar.gz
+# cd nginx-1.12.1
+</code></pre>
+<h3>③ 使用默认配置</h3>
+<pre><code># ./configure
+</code></pre>
+<h3>④ 编译、安装</h3>
+<pre><code># make
+# make install
+</code></pre>
+<h3>⑤ 启动nginx</h3>
+<pre><code># cd /usr/local/nginx/sbin/
+# ./nginx 
+
+其它命令
+# ./nginx -s stop
+# ./nginx -s quit
+# ./nginx -s reload
+</code></pre>
+<h3>⑥ 设置开机启动</h3>
+<pre><code>
+# vim /etc/rc.local
+
+添加一行：
+/usr/local/nginx/sbin/nginx
+
+# 设置执行权限
+# chmod 755 /etc/rc.local
+</code></pre>
+<h3>⑦ 查看nginx的版本及模块</h3>
+<pre><code>/usr/local/nginx/sbin/nginx -V
+</code></pre>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180409-200634@2x.png" alt="" /></p>
+<h3>⑧ 防火墙中打开Nginx端口（默认的 80）</h3>
+<p>添加后就能在本机使用80端口访问了。</p>
+<pre><code># 添加开放IP：
+firewall-cmd --permanent --zone=public --add-port=80/tcp
+# 重启： 
+firewall-cmd --reload
+</code></pre>
+<h2>3、访问文件</h2>
+<p>简单的测试访问文件</p>
+<h3>① 修改nginx.conf</h3>
+<pre><code># vim /usr/local/nginx/conf/nginx.conf
+
+添加如下行，将 /group1/M00 映射到 /data/fastdfs/file/data
+location /group1/M00 {
+    alias /data/fastdfs/file/data;
+}
+
+# 重启nginx
+# /usr/local/nginx/sbin/nginx -s reload
+</code></pre>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180409-201024@2x.png" alt="" /></p>
+<p>② 在浏览器访问之前上传的图片、成功。</p>
+<p>http://118.25.36.41/group1/M00/00/00/Cmlg2FrLU9eAVJ-ZAAAejzOgbzU97.conf</p>
+<h1>四、FastDFS 配置 Nginx 模块</h1>
+<h2>1、安装配置Nginx模块</h2>
+<h3>① fastdfs-nginx-module 模块说明</h3>
+<p>FastDFS 通过 Tracker 服务器，将文件放在 Storage 服务器存储， 但是同组存储服务器之间需要进行文件复制， 有同步延迟的问题。</p>
+<p>　　假设 Tracker 服务器将文件上传到了 192.168.51.128，上传成功后文件 ID已经返回给客户端。</p>
+<p>　　此时 FastDFS 存储集群机制会将这个文件同步到同组存储 192.168.51.129，在文件还没有复制完成的情况下，客户端如果用这个文件 ID 在 192.168.51.129 上取文件,就会出现文件无法访问的错误。</p>
+<p>　　而 fastdfs-nginx-module 可以重定向文件链接到源服务器取文件，避免客户端由于复制延迟导致的文件无法访问错误。
+　　</p>
+<h3>② 下载 fastdfs-nginx-module、解压</h3>
+<pre><code># 这里为啥这么长一串呢，因为最新版的master与当前nginx有些版本问题。
+# wget https://github.com/happyfish100/fastdfs-nginx-module/archive/5e5f3566bbfa57418b5506aaefbe107a42c9fcb1.zip
+
+# 解压
+# unzip 5e5f3566bbfa57418b5506aaefbe107a42c9fcb1.zip
+
+# 重命名
+# mv fastdfs-nginx-module-5e5f3566bbfa57418b5506aaefbe107a42c9fcb1  fastdfs-nginx-module-master
+</code></pre>
+<h3>③ 配置Nginx</h3>
+<p>在nginx中添加模块</p>
+<pre><code># 先停掉nginx服务
+# /usr/local/nginx/sbin/ngix -s stop
+
+进入解压包目录
+# cd /softpackages/nginx-1.12.1/
+
+# 添加模块
+# ./configure --add-module=../fastdfs-nginx-module-master/src
+
+重新编译、安装
+# make &amp;&amp; make install
+</code></pre>
+<h3>④ 查看Nginx的模块</h3>
+<pre><code># /usr/local/nginx/sbin/nginx -V
+</code></pre>
+<p>有下面这个就说明添加模块成功</p>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180411-150859@2x.png" alt="" /></p>
+<h3>⑤ 复制 fastdfs-nginx-module 源码中的配置文件到/etc/fdfs 目录， 并修改</h3>
+<pre><code># cd /softpackages/fastdfs-nginx-module-master/src
+
+# cp mod_fastdfs.conf /etc/fdfs/
+</code></pre>
+<p>修改如下配置，其它默认</p>
+<pre><code># cd /softpackages/fastdfs-nginx-module-master/src
+
+# cp mod_fastdfs.conf /etc/fdfs/
+</code></pre>
+<p>修改如下配置，其它默认</p>
+<pre><code># 连接超时时间
+connect_timeout=10
+
+# Tracker Server
+tracker_server=118.25.36.41:22122
+
+# StorageServer 默认端口
+storage_server_port=23000
+
+# 如果文件ID的uri中包含/group**，则要设置为true
+url_have_group_name = true
+
+# Storage 配置的store_path0路径，必须和storage.conf中的一致
+store_path0=/data/fastdfs/file
+</code></pre>
+<h3>⑥ 复制 FastDFS 的部分配置文件到/etc/fdfs 目录</h3>
+<pre><code># cd /softpackages/fastdfs-5.05/conf/
+
+# cp anti-steal.jpg http.conf mime.types /etc/fdfs/
+</code></pre>
+<h3>⑦ 配置nginx，修改nginx.conf</h3>
+<pre><code># vim /usr/local/nginx/conf/nginx.conf
+</code></pre>
+<p>修改配置，其它的默认</p>
+<p>在80端口下添加fastdfs-nginx模块</p>
+<pre><code>location ~/group([0-9])/M00 {
+    ngx_fastdfs_module;
+}
+</code></pre>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180411-150844@2x.png" alt="" /></p>
+<p><strong>注意：</strong>
+listen 80 端口值是要与 /etc/fdfs/storage.conf 中的 http.server_port=80 (前面改成80了)相对应。如果改成其它端口，则需要统一，同时在防火墙中打开该端口。</p>
+<p>　　location 的配置，如果有多个group则配置location ~/group([0-9])/M00 ，没有则不用配group。
+　　</p>
+<h3>⑧ 在/data/fastdfs/file 文件存储目录下创建软连接，将其链接到实际存放数据的目录，这一步可以省略。</h3>
+<pre><code># ln -s /data/fastdfs/file/data/ /data/fastdfs/file/data/M00
+</code></pre>
+<h3>⑨ 启动nginx</h3>
+<pre><code># /usr/local/nginx/sbin/nginx
+</code></pre>
+<p>打印处如下就算配置成功</p>
+<p><img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180411-151138@2x.png" alt="" /></p>
+<h3>⑩ 在地址栏访问</h3>
+<p>能下载文件就算安装成功。注意和第三点中直接使用nginx路由访问不同的是，这里配置 fastdfs-nginx-module 模块，可以重定向文件链接到源服务器取文件。</p>
+<p>http://118.25.36.41/group1/M00/00/00/Cmlg2FrLU9eAVJ-ZAAAejzOgbzU97.conf</p>
+<p>最终部署结构图(盗的图)：可以按照下面的结构搭建环境。
+<img src="http://ozlpw4ja9.bkt.clouddn.com/WX20180410-092201@2x.png" alt="" /></p>
+<p>以上</p>
+<p>原作者：bojiangzhou
+原出处：http://www.cnblogs.com/chiangchou/
+　　</p>
+
+            </div>
+
+
+        </article>
+
+
+        <!-- Comments -->
+        <html lang="en">
+<body>
+
+<div class="comment-allow">
+    <div id="comments-content">
+        <div id="42" class="comments-pan">
+
+            <h3>
+                1
+                Comments
+            </h3>
+
+            <ul class="comments-reply">
+                
+                    <li id="li-comment-20">
+
+                        <figure id="comment-20">
+
+                            <img src="https://github.com/identicons/9d98a7a64ab184a113e9d1ca18a37da5.png?s=80&r=G&d=" alt=""
+                                 class="img-responsive"/>
+
+                        </figure>
+
+                        <section>
+
+                            <h4><a href="" target="blank">热心网友</a></h4>
+
+                            <div class="date-pan">
+                                2018-08-04
+                            </div>
+
+                            <p>感谢分享,正在学习您的my-site项目,fastdfs是不错的中小文件存储系统</p>
+
+
+                        </section>
+
+
+                    </li>
+                
+
+
+            </ul>
+            <div class="commentys-form">
+
+                <h4>Leave a comment</h4>
+
+
+                <div class="row">
+
+                    <form  id="comment-form" class="comment-form" role="form"
+                          onsubmit="return TaleComment.subComment();">
+
+                        <input type="hidden" name="coid" id="coid"/>
+                        <input type="hidden" name="cid" id="cid" value="42"/>
+                        <input type="hidden" name="_csrf_token" value="bAadjSSaHpDR6a2nnpKuU2"/>
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="text" name="author" maxlength="12" id="author"
+                                   placeholder="姓名 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="email" name="mail" id="mail"
+                                   placeholder="邮箱 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="url" name="url" id="url"
+                                   placeholder="网址 (http://)"
+                            />
+
+                        </div>
+
+                        <div class="clearfix"></div>
+
+                        <div class="col-xs-12 col-sm-12 col-md-12">
+
+                                <textarea name="text" id="textarea" placeholder="以上信息可以为空,评论不能为空哦!"
+                                          required="required" minlength="5"
+                                          maxlength="2000"></textarea>
+                        </div>
+
+                        <div class="text-center">
+
+                            <input type="submit" value="Post Comment" id="misubmit"/>
+
+                        </div>
+
+
+                    </form>
+
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+
+    </div>
+
+
+</main>
+
+<!-- main -->
+
+<!-- footer -->
+
+<html lang="en">
+<footer role="footer">
+
+    <!-- logo -->
+
+    <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="Luis" alt="Luis"/></a> </h1>
+
+
+    <!-- logo -->
+
+    <!-- nav -->
+
+    <nav role="footer-nav">
+        <ul>
+            <li><a href="../../index.html" title="Work">Work</a></li>
+            <li><a href="../../about.html" title="About">About</a></li>
+            <li><a href="../index.html" title="Blog">Blog</a></li>
+        </ul>
+    </nav>
+
+    <!-- nav -->
+
+    <ul role="social-icons">
+        
+            
+                
+                    
+                    
+                    
+                        <li><a class="icon resume" target="blank" href="https://resume.winterchen.com/"></a></li>
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon zhihu" target="blank" href="https://www.zhihu.com/people/Winter_chen"></a></li>
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon github" target="blank" href="https://github.com/WinterChenS"></a></li>
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                        <li><a class="icon csdn" target="blank" href="https://blog.csdn.net/Winter_chen001"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                    
+                        <li><a class="icon jianshu" target="blank" href="https://www.jianshu.com/u/a6fa02ee712b"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+    </ul>
+    <p class="copy-right">&copy; 2018 Luis</p>
+    <a class="copy-right" href="http://www.miitbeian.gov.cn/">浙ICP备17056942号-2</a>
+</footer>
+
+<!-- footer -->
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+
+<script src="../../site/js/jquery.min.js" type="text/javascript"></script>
+
+<!-- custom -->
+
+<script src="../../site/js/nav.js" type="text/javascript"></script>
+<script src="../../site/js/custom.js" type="text/javascript"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+
+<script src="../../site/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="../../site/js/effects/masonry.pkgd.min.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/imagesloaded.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/classie.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/AnimOnScroll.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/modernizr.custom.js"></script>
+<script src="https://cdn.bootcss.com/headroom/0.9.1/headroom.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.9.0/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/instantclick/3.0.1/instantclick.min.js"></script>
+
+<!-- jquery.countdown -->
+
+<script src="../../site/js/html5shiv.js" type="text/javascript"></script>
+<script data-no-instant="">
+    /*<![CDATA[*/
+    InstantClick.on('change', function (isInitialLoad) {
+        var blocks = document.querySelectorAll('pre code');
+        for (var i = 0; i < blocks.length; i++) {
+            hljs.highlightBlock(blocks[i]);
+        }
+        if (isInitialLoad === false) {
+            if (typeof ga !== 'undefined') ga('send', 'pageview', location.pathname + location.search);
+        }
+    });
+    InstantClick.init('mousedown');
+    /*]]>*/
+</script>
+<!-- 百度收录自动推送 -->
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        }
+        else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+
+    function linkFirend(link) {
+        window.location.href=link;
+    }
+</script>
+</html>
+
+</body>
+<html lang="en">
+<body>
+<script type="text/javascript">
+    /*<![CDATA[*/
+    (function () {
+        window.TaleComment = {
+            dom: function (id) {
+                return document.getElementById(id);
+            },
+            create: function (tag, attr) {
+                var el = document.createElement(tag);
+                for (var key in attr) {
+                    el.setAttribute(key, attr[key]);
+                }
+                return el;
+            },
+            reply: function (coid) {
+                $('#comment-form input[name=coid]').val(coid);
+                $("html,body").animate({scrollTop: $('div.comment-container').offset().top}, 500);
+                $('#comment-form #textarea').focus();
+            },
+            subComment: function () {
+                $.ajax({
+                    type: 'post',
+                    url: '/blog/comment',
+                    data: $('#comment-form').serialize(),
+                    async: false,
+                    dataType: 'json',
+                    success: function (result) {
+                        $('#comment-form input[name=coid]').val('');
+                        if (result && result.code == 'success') {
+                            alert("评论已提交至后台审核!");
+                            window.location.reload();
+                        } else {
+                            if (result.msg) {
+                                alert(result.msg);
+                            }
+                        }
+                    }
+                });
+                return false;
+            }
+        };
+    })();
+    function getCommentCookie(name) {
+        var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+        if (arr = document.cookie.match(reg))
+            return unescape(decodeURI(arr[2]));
+        else
+            return null;
+    }
+    function addCommentInputValue() {
+        document.getElementById('author').value = getCommentCookie('tale_remember_author');
+        document.getElementById('mail').value = getCommentCookie('tale_remember_mail');
+        document.getElementById('url').value = getCommentCookie('tale_remember_url');
+    }
+    addCommentInputValue();
+    /*]]>*/
+</script>
+</body>
+</html>
+</html>

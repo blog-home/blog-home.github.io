@@ -1,0 +1,710 @@
+<!DOCTYPE HTML>
+
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <meta charset="utf-8">
+
+    <!-- Description, Keywords and Author -->
+
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>Java源码之旅(1) - ArrayList</title>
+    <link rel="shortcut icon" href="http://img.winterchen.com/favicon.ico" type="image/x-icon">
+
+    <meta name="google-site-verification" content="eSQZAmjfibuJ-t-hspvmzqj-n0-YmQI-uVfeHZG3Yw8" />
+    <meta name="baidu-site-verification" content="cWhqikcyTK" />
+    <!-- style -->
+
+    <link href="../../site/css/style.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/style.min.css" rel="stylesheet" type="text/css">
+    <link href="https://cdn.bootcss.com/highlight.js/9.9.0/styles/xcode.min.css" rel="stylesheet"/>
+
+    <!-- style -->
+
+    <!-- bootstrap -->
+
+    <link href="../../site/css/bootstrap.min.css" rel="stylesheet" type="text/css">
+
+    <!-- responsive -->
+
+    <link href="../../site/css/responsive.css" rel="stylesheet" type="text/css">
+
+    <!-- font-awesome -->
+
+    <link rel="stylesheet" type="text/css" href="../../site/jquery/font-awesome.4.6.0.css">
+
+    <!-- font-awesome -->
+
+    <link href="../../site/css/effects/set2.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/normalize.css" rel="stylesheet" type="text/css">
+    <link href="../../site/css/effects/component.css"  rel="stylesheet" type="text/css" >
+</head>
+
+
+<body>
+
+
+<!-- header -->
+
+<html lang="en">
+<header role="header">
+    <div class="container">
+
+        <!-- logo -->
+
+        <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="avana LLC" alt="avana LLC"/></a> </h1>
+
+        <!-- logo -->
+
+        <!-- nav -->
+
+        <nav role="header-nav" class="navy">
+            <ul>
+                <li><a href="../../index.html" title="Work">Work</a></li>
+                <li><a  href="../../about.html" title="About">About</a></li>
+                <li class="nav-active"><a href="../index.html" title="Blog">Blog</a></li>
+            </ul>
+        </nav>
+
+        <!-- nav -->
+
+    </div>
+</header>
+</html>
+
+<!-- header -->
+
+<!-- main -->
+
+<main role="main-inner-wrapper" class="container">
+
+
+    <div class="blog-details">
+
+        <article class="post-details" id="post-details">
+
+            <header role="bog-header" class="bog-header text-center">
+
+                <h3>
+                    <span>12</span> 五月  2018
+                </h3>
+
+                <h2>
+                    Java源码之旅(1) - ArrayList
+                </h2>
+
+            </header>
+
+
+            <figure>
+
+                <img src="https://luischen.cn/blog/article/images/blog-images/blog-details-image.jpg" alt="" class="img-responsive"/>
+
+            </figure>
+
+            <div id="post-content" class="post-content" itemprop="articleBody">
+                <blockquote>
+<p>技术在学习中成长，源码的世界没有你想象的那么复杂</p>
+</blockquote>
+<h2>前言</h2>
+<p>2018年的五月，开始java的源码学习之旅，从简单的角度去理解java的源码，前几天在学习交流中正好看了一下java集合的源码，才发现源码并没有想象中的那么难以理解，所以，源码之旅从java的集合类开始咯。</p>
+<p>本章的源码版本为：<code>JDK1.8</code></p>
+<h2>类的关系</h2>
+<p>要理解<code>ArrayList</code>的源码，我们就需要从它的关系开始，<code>ArrayList</code>继承了<code>AbstractList</code>，实现了<code>List</code>接口，我们从UML图可以看出：</p>
+<p><img src="http://img.winterchen.com/WX20180510-154020@2x.png" alt="" /></p>
+<p>虚线箭头表示实现接口，实线箭头表示继承关系</p>
+<h2>ArrayList简介</h2>
+<p><code>ArrayList</code>是<code>java</code>中最常用的集合类了，说到<code>ArrayList</code>，我们不得不说说<code>LinkedList</code>，因为他们都是从<code>Collection</code>派生而来的，都是用来存放对象的序列的集合类，<code>ArrayList</code>相比与<code>LinkedList</code>有什么优劣呢？</p>
+<ul>
+<li>
+<p><code>ArrayList</code>:</p>
+<ul>
+<li>
+<p>优点：<strong>随机访问元素的速度快</strong></p>
+</li>
+<li>
+<p>缺点：<strong>从中间插入和移除元素比较慢</strong></p>
+</li>
+</ul>
+</li>
+<li>
+<p><code>LinkedList</code>：</p>
+<ul>
+<li>
+<p>优点：<strong>从中间插入和移除元素速度快</strong></p>
+</li>
+<li>
+<p>缺点：<strong>随机访问元素的速度比较慢</strong></p>
+</li>
+</ul>
+</li>
+</ul>
+<p>接下来我们就从源码的角度去理解一下为什么有这些优缺点。</p>
+<h2>源码分析</h2>
+<h3>ArrayList的初始化</h3>
+<p><code>ArrayList</code>有三个构造方法</p>
+<pre><code class="language-java">//默认初始容量
+private static final int DEFAULT_CAPACITY = 10;
+//空的元素数组
+private static final Object[] EMPTY_ELEMENTDATA = {};
+//初始容量空的元素数组
+private static final Object[] DEFAULTCAPACITY_EMPTY_ELEMENTDATA = {};
+// 存放元素的数组
+transient Object[] elementData; // non-private to simplify nested class access
+//数组的大小
+private int size;
+
+// 空参的构造方法
+public ArrayList() {
+        this.elementData = DEFAULTCAPACITY_EMPTY_ELEMENTDATA; // -- (1)
+    }
+
+//指定初始容量的构造方法
+public ArrayList(int initialCapacity) {
+        if (initialCapacity &gt; 0) {
+            this.elementData = new Object[initialCapacity]; // -- (2)
+        } else if (initialCapacity == 0) {
+            this.elementData = EMPTY_ELEMENTDATA; // -- (3)
+        } else {
+            throw new IllegalArgumentException(&quot;Illegal Capacity: &quot;+
+                                               initialCapacity);
+        }
+    }
+
+//初始化给定一个集合的构造函数
+public ArrayList(Collection&lt;? extends E&gt; c) {
+        elementData = c.toArray();    // -- (4)
+        if ((size = elementData.length) != 0) {
+            // c.toArray might (incorrectly) not return Object[] (see 6260652)
+            if (elementData.getClass() != Object[].class)
+                elementData = Arrays.copyOf(elementData, size, Object[].class);  // -- (5)
+        } else {
+            // replace with empty array.
+            this.elementData = EMPTY_ELEMENTDATA;
+        }
+    }
+</code></pre>
+<p>从源码中我们可以看出，<code>ArrayList</code>其实底层使用的是<code>数组</code>，<code>transient Object[] elementData</code> 这个变量就是用来存放对象的一个数组。</p>
+<ul>
+<li>
+<p><code>ArrayList</code>的空参构造函数：也就是默认的构造函数，当<code>new ArrayList()</code>的时候调用这个方法，可以看出将<code>elementData</code>变量地址指向了<code>DEFAULTCAPACITY_EMPTY_ELEMENTDATA</code>这个<strong>初始容量为10，并且为空的元素数组</strong>;如步骤<code>(1)</code></p>
+</li>
+<li>
+<p><code>ArrayList</code>的指定大小的构造函数：当初始化一个指定大小的<code>new ArrayList(int)</code>的时候调用该方法，这个方法首先对<code>initialCapacity</code>参数进行判断，<strong>如果大于0</strong>，那么创建一个指定大小的数组<code>(2)</code>；<strong>如果等于0</strong>,创建一个空的数组<code>(3)</code>；否则就判处异常；</p>
+</li>
+<li>
+<p>初始化给定一个集合的构造函数：如果初始化的时候，给定一个集合对象，那么将这个集合转换为数组 <code>(4)</code>，然后对这个数组的长度进行判断，如果数组不等于0，那么调用<code>Arrays.copyOf(elementData, size, Object[].class)</code>方法<code>(5)</code>，这个方法是一个<strong>核心方法</strong>，这个方法就是初始化一个大小为等于当前数组的一个新的数组，然后将对象<code>copy</code>到新的数组中，然后将内存地址指定给<code>elementData</code>，从下面的<code>Arrays.copyOf</code>的源码可以看出来。</p>
+</li>
+</ul>
+<pre><code class="language-java">public static &lt;T,U&gt; T[] copyOf(U[] original, int newLength, Class&lt;? extends T[]&gt; newType) {
+        @SuppressWarnings(&quot;unchecked&quot;)
+        T[] copy = ((Object)newType == (Object)Object[].class)
+            ? (T[]) new Object[newLength]
+            : (T[]) Array.newInstance(newType.getComponentType(), newLength);
+        System.arraycopy(original, 0, copy, 0,
+                         Math.min(original.length, newLength));
+        return copy;
+    }
+</code></pre>
+<p><code>copyOf</code>方法首先判断两个对象的类型，如果类型一致，那么直接创建一个同大小的数组；如果类型不一致，则调用<code>Array.newInstance</code>指定类型进行初始化这个数组，当然，大小也是一致的; 最后调用<code>System.arraycopy</code>将参数数组<code>copy</code>到新的目标并返回。</p>
+<h3>ArrayList的常用方法之 add</h3>
+<p>我们先看一下源码：</p>
+<pre><code class="language-java">public boolean add(E e) {
+        ensureCapacityInternal(size + 1);  // Increments modCount!! -- (1)
+        elementData[size++] = e;
+        return true;
+    }
+
+public void add(int index, E element) {
+        rangeCheckForAdd(index);//-- (2)
+
+        ensureCapacityInternal(size + 1);  // Increments modCount!!
+        System.arraycopy(elementData, index, elementData, index + 1,
+                         size - index); //-- (3)
+        elementData[index] = element;
+        size++;
+    }
+</code></pre>
+<p>ArrayList有两个add方法，第一个方法就是按顺序将对象插入到尾部，第二个方法就是从中间插入对象。</p>
+<p><code>add(E e)</code> 方法首先会判断数组的容量是否超过极限<code>ensureCapacityInternal(size + 1)</code>，这个方法首先会进行容量的判断，如果超过了极限，创建一个新的数组，大小是旧数组1.5倍，然后将旧数组中的对象全部拷贝到新的数组<code>(1)</code>，等下会详细解析这个方法。最后将参数对象插入到数组中，返回true。</p>
+<p><code>add(int index, E element)</code>首先会调用<code>rangeCheckForAdd(index)</code>进行index的是否越界的验证<code>(2)</code>，然后调用上一个方法中一样的判断容量是否超过极限的方法，下一步就是一个核心的方法<code>System.arraycopy</code>，这个方法我们在<code>ArrayList初始化中</code>已经讲过了，但是这里不太一样：</p>
+<ul>
+<li>
+<p><code>elementData</code> : 源数组</p>
+</li>
+<li>
+<p><code>index</code>：源数组起始位置</p>
+</li>
+<li>
+<p><code>elementData</code>：目标数组</p>
+</li>
+<li>
+<p><code>index + 1</code>：目标数组起始位置</p>
+</li>
+<li>
+<p><code>size - index</code>：复制数组元素数目</p>
+</li>
+</ul>
+<p>从源码中可以看出，当我们往一个ArrayList中间插入一个对象的时候，index索引处后面的索引往后移动一位，最后把索引为index空出来，并将element赋值给它。这样一来我们并不知道要插入哪个位置，所以会进行匹配那么它的时间赋值度就为n。</p>
+<p>接下来看一下<code>ensureCapacityInternal(size + 1)</code>这个方法的调用链：</p>
+<pre><code class="language-java">private void ensureCapacityInternal(int minCapacity) {
+  if (elementData == DEFAULTCAPACITY_EMPTY_ELEMENTDATA) {
+    minCapacity = Math.max(DEFAULT_CAPACITY, minCapacity);
+  }
+
+  ensureExplicitCapacity(minCapacity);
+}
+
+
+private void ensureExplicitCapacity(int minCapacity) {
+  modCount++;
+
+  // overflow-conscious code
+  if (minCapacity - elementData.length &gt; 0)
+    grow(minCapacity);
+}
+
+private void grow(int minCapacity) {
+  // overflow-conscious code
+  int oldCapacity = elementData.length;
+  int newCapacity = oldCapacity + (oldCapacity &gt;&gt; 1);//oldCapacity &gt;&gt; 1 就是除以2
+  if (newCapacity - minCapacity &lt; 0)
+    newCapacity = minCapacity;
+  if (newCapacity - MAX_ARRAY_SIZE &gt; 0)
+    newCapacity = hugeCapacity(minCapacity);
+  // minCapacity is usually close to size, so this is a win:
+  elementData = Arrays.copyOf(elementData, newCapacity);
+}
+</code></pre>
+<p><code>ensureCapacityInternal(int minCapacity)</code>方法中判断当前数组中的元素是否为空，如果为空则给定一个最大的值，然后调用<code>ensureExplicitCapacity(minCapacity)</code>，这个方法主要是判数组容量是否超过极限，如果超过极限调用<code>grow(int minCapacity)</code>，这个方法就是扩容方法，该方法会创建一个比原数组大1.5倍的新数组，然后将原数组中的所有对象<code>copy</code>到新的数组中。</p>
+<h3>ArrayList的常用方法之 remove</h3>
+<p><code>remove</code>方法其实跟从中间插入对象的<code>add</code>方法有很大的相似之处，如果我们删除某一个元素，将<code>index</code>开始后面的所有对象都往前移动一位，底层方法其实是复制一遍，所以删除一个对象的复杂度和从中间插入一个对象是差不多的。</p>
+<pre><code class="language-java">public E remove(int index) {
+        rangeCheck(index);
+
+        modCount++;
+        E oldValue = elementData(index);
+
+        int numMoved = size - index - 1;
+        if (numMoved &gt; 0)
+            System.arraycopy(elementData, index+1, elementData, index,
+                             numMoved);
+        elementData[--size] = null; // clear to let GC do its work
+
+        return oldValue;
+    }
+</code></pre>
+<h3>ArrayList的常用方法之 get</h3>
+<p><code>ArrayList</code>的<code>get</code>方法非常直观的就能理解了，废话不多说，直接看代码:</p>
+<pre><code class="language-java"> public E get(int index) {
+   rangeCheck(index);
+
+   return elementData(index);
+ }
+</code></pre>
+<p>检查index合法性，然后从数组中取出对象并返回，是不是很简单呢？</p>
+<h2>总结</h2>
+<p>本章列举了一些ArrayList常用的方法，了解到ArrayList底层其实是一个对象数组，以及从中间插入对象和移除对象比较慢的原因，从这些方法出发，理解ArrayList其他的方法会很简单了。下一章讲一讲LinkedList的源码。</p>
+
+            </div>
+
+
+        </article>
+
+
+        <!-- Comments -->
+        <html lang="en">
+<body>
+
+<div class="comment-allow">
+    <div id="comments-content">
+        <div id="48" class="comments-pan">
+
+            <h3>
+                3
+                Comments
+            </h3>
+
+            <ul class="comments-reply">
+                
+                    <li id="li-comment-18">
+
+                        <figure id="comment-18">
+
+                            <img src="https://github.com/identicons/eef4857ded9e8246963d9e810a64a953.png?s=80&r=G&d=" alt=""
+                                 class="img-responsive"/>
+
+                        </figure>
+
+                        <section>
+
+                            <h4><a href="" target="blank">热心网友</a></h4>
+
+                            <div class="date-pan">
+                                2018-05-17
+                            </div>
+
+                            <p>楼主的博客系统非常nice，正好准备自己构建一个个人博客系统，真是帮了大忙了 👍</p>
+
+
+                        </section>
+
+
+                    </li>
+                
+                    <li id="li-comment-28">
+
+                        <figure id="comment-28">
+
+                            <img src="https://github.com/identicons/9d98a7a64ab184a113e9d1ca18a37da5.png?s=80&r=G&d=" alt=""
+                                 class="img-responsive"/>
+
+                        </figure>
+
+                        <section>
+
+                            <h4><a href="" target="blank">热心网友</a></h4>
+
+                            <div class="date-pan">
+                                2018-11-29
+                            </div>
+
+                            <p>楼主的博客系统非常nice，正好准备自己构建一个个人博客系统，真是帮了大忙了 👍</p>
+
+
+                        </section>
+
+
+                    </li>
+                
+                    <li id="li-comment-33">
+
+                        <figure id="comment-33">
+
+                            <img src="https://github.com/identicons/9d98a7a64ab184a113e9d1ca18a37da5.png?s=80&r=G&d=" alt=""
+                                 class="img-responsive"/>
+
+                        </figure>
+
+                        <section>
+
+                            <h4><a href="" target="blank">热心网友</a></h4>
+
+                            <div class="date-pan">
+                                2019-03-06
+                            </div>
+
+                            <p>楼主的博客系统非常nice，正好准备自己构建一个个人博客系统，真是帮了大忙了 👍</p>
+
+
+                        </section>
+
+
+                    </li>
+                
+
+
+            </ul>
+            <div class="commentys-form">
+
+                <h4>Leave a comment</h4>
+
+
+                <div class="row">
+
+                    <form  id="comment-form" class="comment-form" role="form"
+                          onsubmit="return TaleComment.subComment();">
+
+                        <input type="hidden" name="coid" id="coid"/>
+                        <input type="hidden" name="cid" id="cid" value="48"/>
+                        <input type="hidden" name="_csrf_token" value="MZOF-cG3Hb19I_nXhlyz40"/>
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="text" name="author" maxlength="12" id="author"
+                                   placeholder="姓名 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="email" name="mail" id="mail"
+                                   placeholder="邮箱 (*)"
+                            />
+
+                        </div>
+
+                        <div class="col-xs-12 col-sm-4 col-md-4">
+
+                            <input type="url" name="url" id="url"
+                                   placeholder="网址 (http://)"
+                            />
+
+                        </div>
+
+                        <div class="clearfix"></div>
+
+                        <div class="col-xs-12 col-sm-12 col-md-12">
+
+                                <textarea name="text" id="textarea" placeholder="以上信息可以为空,评论不能为空哦!"
+                                          required="required" minlength="5"
+                                          maxlength="2000"></textarea>
+                        </div>
+
+                        <div class="text-center">
+
+                            <input type="submit" value="Post Comment" id="misubmit"/>
+
+                        </div>
+
+
+                    </form>
+
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+
+
+    </div>
+
+
+</main>
+
+<!-- main -->
+
+<!-- footer -->
+
+<html lang="en">
+<footer role="footer">
+
+    <!-- logo -->
+
+    <h1> <a href="../../index.html" title="avana LLC"><img src="http://img.winterchen.com/BF6AC5E5-C8D7-4841-B3ED-9D898586D5FF-9703-0000073B1BF8A7F8_tmp.PNG" style="width: 66px;" title="Luis" alt="Luis"/></a> </h1>
+
+
+    <!-- logo -->
+
+    <!-- nav -->
+
+    <nav role="footer-nav">
+        <ul>
+            <li><a href="../../index.html" title="Work">Work</a></li>
+            <li><a href="../../about.html" title="About">About</a></li>
+            <li><a href="../index.html" title="Blog">Blog</a></li>
+        </ul>
+    </nav>
+
+    <!-- nav -->
+
+    <ul role="social-icons">
+        
+            
+                
+                    
+                    
+                    
+                        <li><a class="icon resume" target="blank" href="https://resume.winterchen.com/"></a></li>
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon zhihu" target="blank" href="https://www.zhihu.com/people/Winter_chen"></a></li>
+                    
+                    
+                    
+                
+            
+        
+            
+                
+                    
+                    
+                    
+                    
+                    
+                    
+                        <li><a class="icon github" target="blank" href="https://github.com/WinterChenS"></a></li>
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                        <li><a class="icon csdn" target="blank" href="https://blog.csdn.net/Winter_chen001"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+            
+        
+            
+                
+                    
+                    
+                        <li><a class="icon jianshu" target="blank" href="https://www.jianshu.com/u/a6fa02ee712b"></a></li>
+                    
+                    
+                    
+                    
+                    
+                    
+                
+            
+        
+    </ul>
+    <p class="copy-right">&copy; 2018 Luis</p>
+    <a class="copy-right" href="http://www.miitbeian.gov.cn/">浙ICP备17056942号-2</a>
+</footer>
+
+<!-- footer -->
+
+<!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+
+<script src="../../site/js/jquery.min.js" type="text/javascript"></script>
+
+<!-- custom -->
+
+<script src="../../site/js/nav.js" type="text/javascript"></script>
+<script src="../../site/js/custom.js" type="text/javascript"></script>
+
+<!-- Include all compiled plugins (below), or include individual files as needed -->
+
+<script src="../../site/js/bootstrap.min.js" type="text/javascript"></script>
+<script src="../../site/js/effects/masonry.pkgd.min.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/imagesloaded.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/classie.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/AnimOnScroll.js"  type="text/javascript"></script>
+<script src="../../site/js/effects/modernizr.custom.js"></script>
+<script src="https://cdn.bootcss.com/headroom/0.9.1/headroom.min.js"></script>
+<script src="https://cdn.bootcss.com/highlight.js/9.9.0/highlight.min.js"></script>
+<script src="https://cdn.bootcss.com/instantclick/3.0.1/instantclick.min.js"></script>
+
+<!-- jquery.countdown -->
+
+<script src="../../site/js/html5shiv.js" type="text/javascript"></script>
+<script data-no-instant="">
+    /*<![CDATA[*/
+    InstantClick.on('change', function (isInitialLoad) {
+        var blocks = document.querySelectorAll('pre code');
+        for (var i = 0; i < blocks.length; i++) {
+            hljs.highlightBlock(blocks[i]);
+        }
+        if (isInitialLoad === false) {
+            if (typeof ga !== 'undefined') ga('send', 'pageview', location.pathname + location.search);
+        }
+    });
+    InstantClick.init('mousedown');
+    /*]]>*/
+</script>
+<!-- 百度收录自动推送 -->
+<script>
+    (function(){
+        var bp = document.createElement('script');
+        var curProtocol = window.location.protocol.split(':')[0];
+        if (curProtocol === 'https') {
+            bp.src = 'https://zz.bdstatic.com/linksubmit/push.js';
+        }
+        else {
+            bp.src = 'http://push.zhanzhang.baidu.com/push.js';
+        }
+        var s = document.getElementsByTagName("script")[0];
+        s.parentNode.insertBefore(bp, s);
+    })();
+
+    function linkFirend(link) {
+        window.location.href=link;
+    }
+</script>
+</html>
+
+</body>
+<html lang="en">
+<body>
+<script type="text/javascript">
+    /*<![CDATA[*/
+    (function () {
+        window.TaleComment = {
+            dom: function (id) {
+                return document.getElementById(id);
+            },
+            create: function (tag, attr) {
+                var el = document.createElement(tag);
+                for (var key in attr) {
+                    el.setAttribute(key, attr[key]);
+                }
+                return el;
+            },
+            reply: function (coid) {
+                $('#comment-form input[name=coid]').val(coid);
+                $("html,body").animate({scrollTop: $('div.comment-container').offset().top}, 500);
+                $('#comment-form #textarea').focus();
+            },
+            subComment: function () {
+                $.ajax({
+                    type: 'post',
+                    url: '/blog/comment',
+                    data: $('#comment-form').serialize(),
+                    async: false,
+                    dataType: 'json',
+                    success: function (result) {
+                        $('#comment-form input[name=coid]').val('');
+                        if (result && result.code == 'success') {
+                            alert("评论已提交至后台审核!");
+                            window.location.reload();
+                        } else {
+                            if (result.msg) {
+                                alert(result.msg);
+                            }
+                        }
+                    }
+                });
+                return false;
+            }
+        };
+    })();
+    function getCommentCookie(name) {
+        var arr, reg = new RegExp("(^| )" + name + "=([^;]*)(;|$)");
+        if (arr = document.cookie.match(reg))
+            return unescape(decodeURI(arr[2]));
+        else
+            return null;
+    }
+    function addCommentInputValue() {
+        document.getElementById('author').value = getCommentCookie('tale_remember_author');
+        document.getElementById('mail').value = getCommentCookie('tale_remember_mail');
+        document.getElementById('url').value = getCommentCookie('tale_remember_url');
+    }
+    addCommentInputValue();
+    /*]]>*/
+</script>
+</body>
+</html>
+</html>
